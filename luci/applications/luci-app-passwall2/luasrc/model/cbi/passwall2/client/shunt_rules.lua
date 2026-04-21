@@ -3,12 +3,36 @@ local appname = api.appname
 local datatypes = api.datatypes
 
 m = Map(appname, "Sing-Box/Xray " .. translate("Shunt Rule"))
-m.redirect = api.url()
+m.redirect = api.url("rule")
 api.set_apply_on_parse(m)
 
+if not arg[1] or not m:get(arg[1]) then
+	luci.http.redirect(m.redirect)
+end
+
+function m.on_before_save(self)
+	m:set("@global[0]", "flush_set", "1")
+end
+
+-- Add inline CSS to map description
+m.description = (m.description or "") .. [[
+<style>
+/* Scope to passwall2 CBI fields so it won't leak elsewhere */
+div[id^="cbid.passwall2."] .cbi-value-field {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1em;
+}
+div[id^="cbid.passwall2."] .cbi-checkbox {
+  display: inline-flex;
+  align-items: center;
+}
+</style>
+]]
+
 function clean_text(text)
-	local nbsp = string.char(0xC2, 0xA0) -- 不间断空格（U+00A0）
-	local fullwidth_space = string.char(0xE3, 0x80, 0x80) -- 全角空格（U+3000）
+	local nbsp = string.char(0xC2, 0xA0) -- Non-breaking space (U+00A0)
+	local fullwidth_space = string.char(0xE3, 0x80, 0x80) -- Full-width space (U+3000)
 	return text
 		:gsub("\t", " ")
 		:gsub(nbsp, " ")
@@ -26,15 +50,28 @@ s.dynamic = false
 remarks = s:option(Value, "remarks", translate("Remarks"))
 remarks.default = arg[1]
 remarks.rmempty = false
+remarks.validate = function(self, value, section)
+	value = api.trim(value)
+	if value == "" then
+		return nil, translate("Remark cannot be empty.")
+	end
+	return value
+end
 
 protocol = s:option(MultiValue, "protocol", translate("Protocol"))
 protocol:value("http")
 protocol:value("tls")
 protocol:value("bittorrent")
+protocol.widget = "checkbox"
+protocol.default = nil
+protocol.optional = false
 
 o = s:option(MultiValue, "inbound", translate("Inbound Tag"))
 o:value("tproxy", translate("Transparent proxy"))
 o:value("socks", "Socks")
+o.widget = "checkbox"
+o.default = nil
+o.optional = false
 
 network = s:option(ListValue, "network", translate("Network"))
 network:value("tcp,udp", "TCP UDP")
@@ -111,9 +148,12 @@ end
 
 source.write = dynamicList_write
 
+--[[
+-- Too low usage rate, hidden
 sourcePort = s:option(Value, "sourcePort", translate("Source port"))
+]]--
 
-port = s:option(Value, "port", translate("port"))
+port = s:option(Value, "port", translate("Port"))
 
 domain_list = s:option(TextValue, "domain_list", translate("Domain"))
 domain_list.rows = 10
@@ -204,5 +244,7 @@ ip_list.description = "<br /><ul>"
 .. "</li>"
 .. "<li>" .. translate("Annotation: Begining with #") .. "</li>"
 .. "</ul>"
+
+o = s:option(Flag, "invert", "invert", translate("Invert match result.") .. " " .. translate("Only support Sing-Box."))
 
 return m

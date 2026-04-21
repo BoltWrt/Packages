@@ -9,10 +9,11 @@ if not arg[1] or not m:get(arg[1]) then
 	luci.http.redirect(m.redirect)
 end
 
-m.render = function(self, ...)
-	Map.render(self, ...)
-	api.optimize_cbi_ui()
+function m.on_before_save(self)
+	self:del(arg[1], "md5")
 end
+
+m:append(Template(appname .. "/cbi/nodes_listvalue_com"))
 
 local has_ss = api.is_finded("ss-redir")
 local has_ss_rust = api.is_finded("sslocal")
@@ -24,6 +25,7 @@ local trojan_type = {}
 local vmess_type = {}
 local vless_type = {}
 local hysteria2_type = {}
+local xray_version = api.get_app_version("xray")
 if has_ss then
 	local s = "shadowsocks-libev"
 	table.insert(ss_type, s)
@@ -46,6 +48,9 @@ if has_xray then
 	table.insert(ss_type, s)
 	table.insert(vmess_type, s)
 	table.insert(vless_type, s)
+	if api.compare_versions(xray_version, ">=", "26.1.13") then
+		table.insert(hysteria2_type, s)
+	end
 end
 if has_hysteria2 then
 	local s = "hysteria2"
@@ -59,7 +64,8 @@ for k, e in ipairs(api.get_valid_nodes()) do
 			remark = e["remark"],
 			type = e["type"],
 			add_mode = e["add_mode"],
-			chain_proxy = e["chain_proxy"]
+			chain_proxy = e["chain_proxy"],
+			group = e["group"]
 		}
 	end
 end
@@ -68,26 +74,92 @@ s = m:section(NamedSection, arg[1])
 s.addremove = false
 s.dynamic = false
 
-function m.commit_handler(self)
-	self:del(arg[1], "md5")
-end
-
 o = s:option(Value, "remark", translate("Subscribe Remark"))
 o.rmempty = false
+o.validate = function(self, value, section)
+	value = api.trim(value)
+	if value == "" then
+		return nil, translate("Remark cannot be empty.")
+	end
+	local duplicate = false
+	m.uci:foreach(appname, "subscribe_list", function(e)
+		if e[".name"] ~= section and e["remark"] and e["remark"]:lower() == value:lower() then
+			duplicate = true
+			return false
+		end
+	end)
+	if duplicate or value:lower() == "default" then
+		return nil, translate("This remark already exists, please change a new remark.")
+	end
+	return value
+end
+o.write = function(self, section, value)
+	local old = m:get(section, self.option) or ""
+	if old ~= value then
+		m.uci:foreach(appname, "nodes", function(e)
+			if e["group"] and e["group"]:lower() == old:lower() then
+				m.uci:set(appname, e[".name"], "group", value)
+			end
+			if e["protocol"] and (e["protocol"] == "_balancing" or e["protocol"] == "_urltest") and e["node_group"] then
+				local gs = ""
+				for g in e["node_group"]:gmatch("%S+") do
+					if api.UrlEncode(old) == g then
+						gs = gs .. " " .. api.UrlEncode(value)
+					else
+						gs = gs .. " " .. g
+					end
+				end
+				gs = api.trim(gs)
+				m.uci:set(appname, e[".name"], "node_group", gs)
+			end
+		end)
+	end
+	return Value.write(self, section, value)
+end
 
 o = s:option(TextValue, "url", translate("Subscribe URL"))
 o.rows = 5
 o.rmempty = false
 o.validate = function(self, value)
 	if not value or value == "" then
-		return nil, translate("URL cannot be empty")
+		return nil, translate("URL cannot be empty.")
 	end
 	return value:gsub("%s+", ""):gsub("%z", "")
 end
 
-o = s:option(Flag, "allowInsecure", translate("allowInsecure"), translate("Whether unsafe connections are allowed. When checked, Certificate validation will be skipped."))
-o.default = "1"
+o = s:option(ListValue, "domain_resolver", translate("Domain DNS Resolve"))
+o.description = translate("If the node address is a domain name, this DNS will be used for resolution.") .. "<br>" ..
+		translate("Supports only Xray or Sing-box node types.")
+o:value("", translate("Auto"))
+o:value("tcp", "TCP")
+o:value("udp", "UDP")
+o:value("https", "DoH")
+
+o = s:option(Value, "domain_resolver_dns", "DNS")
+o.datatype = "or(ipaddr,ipaddrport)"
+o:value("114.114.114.114")
+o:value("223.5.5.5:53")
+o.default = o.keylist[1]
+o:depends({ domain_resolver = "tcp" })
+o:depends({ domain_resolver = "udp" })
+
+o = s:option(Value, "domain_resolver_dns_https", "DNS")
+o:value("https://120.53.53.53/dns-query", "DNSPod")
+o:value("https://223.5.5.5/dns-query", "AliDNS")
+o.default = o.keylist[1]
+o:depends({ domain_resolver = "https" })
+
+o = s:option(ListValue, "domain_strategy", translate("Domain Strategy"), translate("If is domain name, The requested domain name will be resolved to IP before connect."))
+o.default = ""
+o:value("", translate("Auto"))
+o:value("UseIPv4", translate("IPv4 Only"))
+o:value("UseIPv6", translate("IPv6 Only"))
+
+o = s:option(Flag, "allowInsecure", translate("allowInsecure"))
+o.default = "0"
 o.rmempty = false
+o.description = translate("Whether unsafe connections are allowed. When checked, Certificate validation will be skipped.") .. "<br>" ..
+		translate("Used when the node link does not include this parameter.")
 
 o = s:option(ListValue, "filter_keyword_mode", translate("Filter keyword Mode"))
 o.default = "5"
@@ -153,14 +225,8 @@ if #hysteria2_type > 0 then
 	end
 end
 
-o = s:option(ListValue, "domain_strategy", "Sing-box " .. translate("Domain Strategy"), translate("Set the default domain resolution strategy for the sing-box node."))
-o.default = "global"
-o:value("global", translate("Use global config"))
-o:value("", translate("Auto"))
-o:value("prefer_ipv4", translate("Prefer IPv4"))
-o:value("prefer_ipv6", translate("Prefer IPv6"))
-o:value("ipv4_only", translate("IPv4 Only"))
-o:value("ipv6_only", translate("IPv6 Only"))
+o = s:option(Flag, "boot_update", translate("Update Once on Boot"), translate("Updates the subscription the first time runs automatically after each system boot."))
+o.default = 0
 
 ---- Enable auto update subscribe
 o = s:option(Flag, "auto_update", translate("Enable auto update subscribe"))
@@ -214,7 +280,7 @@ o.default = "v2rayN/9.99"
 o:value("curl", "Curl")
 o:value("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 Edg/122.0.0.0", "Edge for Linux")
 o:value("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 Edg/122.0.0.0", "Edge for Windows")
-o:value("Passwall2/OpenWrt", "PassWall2")
+o:value("passwall2", "PassWall2")
 o:value("v2rayN/9.99", "v2rayN")
 
 o = s:option(ListValue, "chain_proxy", translate("Chain Proxy"))
@@ -223,22 +289,27 @@ o:value("1", translate("Preproxy Node"))
 o:value("2", translate("Landing Node"))
 
 local descrStr = "Chained proxy works only with Xray or Sing-box nodes.<br>"
-descrStr = descrStr .. "The chained node must be the same type as your subscription node (Xray with Xray, Sing-box with Sing-box).<br>"
 descrStr = descrStr .. "You can only use manual or imported nodes as chained nodes."
 descrStr = translate(descrStr) .. "<br>" .. translate("Only support a layer of proxy.")
 
-o = s:option(ListValue, "preproxy_node", translate("Preproxy Node"))
-o:depends({ ["chain_proxy"] = "1" })
-o.description = descrStr
+o1 = s:option(ListValue, "preproxy_node", translate("Preproxy Node"))
+o1:depends({ ["chain_proxy"] = "1" })
+o1.description = descrStr
+o1.template = appname .. "/cbi/nodes_listvalue"
+o1.group = {}
 
-o = s:option(ListValue, "to_node", translate("Landing Node"))
-o:depends({ ["chain_proxy"] = "2" })
-o.description = descrStr
+o2 = s:option(ListValue, "to_node", translate("Landing Node"))
+o2:depends({ ["chain_proxy"] = "2" })
+o2.description = descrStr
+o2.template = appname .. "/cbi/nodes_listvalue"
+o2.group = {}
 
 for k, v in pairs(nodes_table) do
 	if (v.type == "Xray" or v.type == "sing-box") and (not v.chain_proxy or v.chain_proxy == "") and v.add_mode ~= "2" then
-		s.fields["preproxy_node"]:value(v.id, v.remark)
-		s.fields["to_node"]:value(v.id, v.remark)
+		o1:value(v.id, v.remark)
+		o1.group[#o1.group+1] = (v.group and v.group ~= "") and v.group or translate("default")
+		o2:value(v.id, v.remark)
+		o2.group[#o2.group+1] = (v.group and v.group ~= "") and v.group or translate("default")
 	end
 end
 
