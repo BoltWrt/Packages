@@ -11,6 +11,10 @@
           [
             "\tMIRROR_HASH:=227eef2dfffb56445145e7b8a76f6d6fa678ce3e99aceec58f7d35564f4cfafd\n",
             "\tMIRROR_HASH:=4401734712dd034eb1088ce440d1bc64d053dfcd6f63f66c08cd48ab68593042\n"
+          ],
+          [
+            "PKG_MIRROR_HASH:=34c85d914e01006439f5e1c9287ae96d6bfcc729ed4bcf386bf5948b938254f4\n",
+            "PKG_MIRROR_HASH:=d7e1490986c80730b63b9eb086f3962704db5634c1f23d7fdc47efd171996f4b\n"
           ]
         ]
       }
