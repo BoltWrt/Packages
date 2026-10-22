@@ -42,3 +42,38 @@ PassWall2 的包检测保留已有 `/lib/apk/packages/*.list` 和 `apk list` 分
 `luci-app-passwall2 - 26.4.20-r1` 人工样本，均解析出 `26.4.20-r1`。
 样本检查仅证明现有文本解析，不证明实际 APK 数据库或 Lua 函数已经运行。
 源码核对不等于 APK 安装、交叉编译或路由器启动验收；这些运行证据应由构建与设备测试另行记录。
+
+### 下载完整性修复
+
+主仓准备脚本必须从已锁定 feed 的 Git HEAD 读取并应用
+`compat/openwrt-25.12.json`，同时保留已有 SmartDNS Rust include 修正。
+该清单只针对 gitlink `5cdbd394a29b8b24659c116c49e0565e98d78305` 的 Makefile，
+以完整旧行唯一匹配替换；不得直接修改子模块提交或接受未知文件变化。
+
+SmartDNS WebUI 的 `Download` 块原来填写 `VERSION`，而 OpenWrt 25.12 下载器读取
+`SOURCE_VERSION`。实际失败日志因此出现空 `--version` / 空 `git checkout`，
+下载了滚动 main `1c06fee693434ec7c71f06010d3f87416baba9f0`，并非 recipe 声明的源码。
+清单修正字段名，并锁定下表中经验证的归档散列；保留 WebUI 功能及原来声明的源码提交。
+
+| 项目 | 固定源码和验证结果 |
+| --- | --- |
+| SmartDNS WebUI 1.0.0 | commit `3261c18b1b93d841e86d9e727557109ae71d71cd`；tree `190f76f34cfda865389b27e8f69887aa6a64edc3`；commit timestamp `1766583635`；归档 SHA256 `4401734712dd034eb1088ce440d1bc64d053dfcd6f63f66c08cd48ab68593042`。 |
+| shadowsocksr-libev 2.5.6 | commit `d63ff863800a5645aca4309d5dd5962bd1e95543`；tree `072e78c57a169e3c5a39997150531e450b0e494c`；commit timestamp `1520404505`；`.tar.zst` SHA256 `42dab453a7d8b3737109110083513467bad1cf71a0aaf671452595797b2b59b0`。仅更新 MIRROR_HASH，版本、commit、patches 和内置 src/server 均保留。 |
+
+WebUI 验证采用两条路径：浅抓取固定 Git commit、按 OpenWrt 25.12 rawgit 的
+git archive / 固定时间 / 排序 / gzip 参数连续生成两次，散列一致；另外从 codeload
+下载固定 commit，全部 109 个文件/链接的 Git blob SHA1 和模式与 GitHub REST 的
+固定 tree 一致，归一化后的散列也相同。官方 25.12 `dl_github_archive.py` 使用固定
+commit 和上述期望散列正常下载及校验通过。失败的滚动归档与正确导出有 14 项差异，
+其 `88adb092...` 散列不被接受。
+
+SSR 同样从固定 Git commit 按官方 rawgit 参数连续归档两次，散列一致；与现场失败文件
+的 737 个内容/模式/链接条目完全相符。现场保留的原始 Git tar 元数据也确认同一 commit。
+官方 25.12 `dl_github_archive.py` 使用相同固定 commit 和期望散列也正常校验通过。
+原 `146fa451...` 散列不匹配当前规范归档，更新依据是固定源码的独立重生成，
+不是直接信任失败下载产生的文件。OpenWrt 默认 Prepare 仍会将本包 `src/server` 复制到
+解包目录，再应用已有补丁；该本地服务器实现来自原有 ywb94/shadowsocks-libev，
+不是此次重新下载的源码，也未在此次修复中改动。
+
+上述验证在临时隔离容器中进行，现有构建卷只读挂载，无 `skip` 校验或主现场改动。
+这些结果证明源码身份和下载归档完整性，不代表组件已编译或设备运行通过。
