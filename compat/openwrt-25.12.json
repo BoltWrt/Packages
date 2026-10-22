@@ -1,0 +1,19 @@
+{
+  "submodules": {
+    "net/openwrt-smartdns": {
+      "commit": "5cdbd394a29b8b24659c116c49e0565e98d78305",
+      "files": {
+        "Makefile": [
+          [
+            "\tVERSION:=$(SMARTDNS_WEBUI_SOURCE_VERSION)\n",
+            "\tSOURCE_VERSION:=$(SMARTDNS_WEBUI_SOURCE_VERSION)\n"
+          ],
+          [
+            "\tMIRROR_HASH:=227eef2dfffb56445145e7b8a76f6d6fa678ce3e99aceec58f7d35564f4cfafd\n",
+            "\tMIRROR_HASH:=4401734712dd034eb1088ce440d1bc64d053dfcd6f63f66c08cd48ab68593042\n"
+          ]
+        ]
+      }
+    }
+  }
+}
