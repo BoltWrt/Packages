@@ -37,4 +37,8 @@ AccessKey Secret，IPv4 / IPv6 JSON 均调用 `update_aliyun_com.sh`。
 本次工具链裁决核对了上述固定官方 Makefile、第三方对应版本的 `go.mod` /
 `Cargo.toml`、两个目标配置和 DDNS 安装路径。`git diff --check` 用于提交检查。
 PassWall2 的包检测保留已有 `/lib/apk/packages/*.list` 和 `apk list` 分支。
+其 `root` 目录全部 shell 脚本通过宿主 `sh -n` 语法检查；版本管道分别使用
+`luci-app-passwall2-26.4.20-r1 ... [installed]` 和
+`luci-app-passwall2 - 26.4.20-r1` 人工样本，均解析出 `26.4.20-r1`。
+样本检查仅证明现有文本解析，不证明实际 APK 数据库或 Lua 函数已经运行。
 源码核对不等于 APK 安装、交叉编译或路由器启动验收；这些运行证据应由构建与设备测试另行记录。
