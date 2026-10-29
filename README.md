@@ -12,7 +12,7 @@
 | 项目 | 处理与用途 |
 | --- | --- |
 | PassWall2 26.4.20 | 保留代理管理与现有 opkg/apk 双路径；无需批量重写安装检测。 |
-| SmartDNS | 保留 gitlink `5cdbd394a29b8b24659c116c49e0565e98d78305`，LuCI gitlink `53c00a368f78cda75486d1551de536fc2e1884f1`。构建准备阶段将 Makefile 中唯一的 `include ../../lang/rust/rust-package.mk` 改为 `include $(TOPDIR)/feeds/packages/lang/rust/rust-package.mk`；不得移动整个官方 Rust 目录。 |
+| SmartDNS 48.4 | recipe 固定上游 gitlink `1db3543cfaa397cd1115b0479416f73062711a63`，LuCI 固定 `581e5e816d92d3a663b1b2e331e3f21685968cf1`（1.2026.48.2-r2）。core 使用正式 `Release48.4`，Rust include 和固定 codeload 下载已由上游修复；增加 core 必需的 zlib 依赖。 |
 | Argon | 保留主题 gitlink `f075cb18cb83d0108a18f79b17888420e3d2d986`。 |
 | Go | 移除本地 1.26.2 工具链覆盖，使用官方 Go 1.26.9。第三方源码要求：Xray 1.26；Sing-box 1.24.7；Hysteria 1.24.0 / toolchain 1.25.1；GeoView 1.24.0；xray-plugin 1.25；v2ray-plugin 1.25.5。 |
 | Rust | 使用官方 1.96.0；Shadowsocks-rust 1.24.0 声明最低 1.88，ShadowTLS 0.2.25 使用 edition 2021。版本约束满足不代表已经完成交叉编译。 |
@@ -45,27 +45,32 @@ PassWall2 的包检测保留已有 `/lib/apk/packages/*.list` 和 `apk list` 分
 
 ### 下载完整性修复
 
-主仓准备脚本必须从已锁定 feed 的 Git HEAD 读取并应用
-`compat/openwrt-25.12.json`，同时保留已有 SmartDNS Rust include 修正。
-该清单只针对 gitlink `5cdbd394a29b8b24659c116c49e0565e98d78305` 的 Makefile，
-以完整旧行唯一匹配替换；不得直接修改子模块提交或接受未知文件变化。
+主仓准备脚本继续从已锁定 feed 的 Git HEAD 读取
+`compat/openwrt-25.12.json`。该清单当前为空：新版 SmartDNS 上游 recipe 已修正
+Rust include 和 core / WebUI 固定源码下载，不再应用旧 gitlink 的精确替换。
+主仓需同步更新 source-lock 中本 feed、recipe / LuCI gitlink，并移除或按版本限定
+旧 `SMARTDNS_PATCH` Rust include 替换；否则准备阶段会因为旧行不存在而拒绝继续。
 
-SmartDNS WebUI 的 `Download` 块原来填写 `VERSION`，而 OpenWrt 25.12 下载器读取
-`SOURCE_VERSION`。实际失败日志因此出现空 `--version` / 空 `git checkout`，
-下载了滚动 main `1c06fee693434ec7c71f06010d3f87416baba9f0`，并非 recipe 声明的源码。
-清单修正字段名，并锁定下表中经验证的归档散列；保留 WebUI 功能及原来声明的源码提交。
+SmartDNS core 使用正式 `Release48.4`（2026-08-05 发布，非 nightly / 预发布），
+tag 固定至下表 commit。47 之后包含 use-after-free、HTTP/2 拒绝服务、CA 验证和
+HTTP/3 边界处理修复；这里采用完整正式版本，不单独拼接安全补丁。
+recipe 与 LuCI 没有正式 GitHub Release，因此采用上述已公开的固定兼容提交。
+LuCI 保留原配置和调用路径，新增 DDR 配置及 UDP / QUIC / HTTP3 的 SOCKS5 校验。
+两产品继续选择 `smartdns`、`luci-app-smartdns`，不选择 `smartdns-ui`；
+WebUI 下载仍准备且必须校验，不能因当前未选用而关闭散列检查。
 
 | 项目 | 固定源码和验证结果 |
 | --- | --- |
-| SmartDNS WebUI 1.0.0 | commit `3261c18b1b93d841e86d9e727557109ae71d71cd`；tree `190f76f34cfda865389b27e8f69887aa6a64edc3`；commit timestamp `1766583635`；归档 SHA256 `4401734712dd034eb1088ce440d1bc64d053dfcd6f63f66c08cd48ab68593042`。 |
+| SmartDNS core 48.4 | tag `Release48.4`；commit `21c940edc65520849ba03544c5cf8d9cf326e680`；codeload SHA256 `f4cb3ec5d2c49bf9752f717cfa1ae2e393df0a001de7ab626b9039cc0bf3ef52`。 |
+| SmartDNS WebUI | commit `1c06fee693434ec7c71f06010d3f87416baba9f0`；codeload SHA256 `7a698dd4826750869429e83d91ce99a4e474d0809588a7f4124ef86875be9b1f`；保留独立解包目录和可选编译功能。 |
 | shadowsocksr-libev 2.5.6 | commit `d63ff863800a5645aca4309d5dd5962bd1e95543`；tree `072e78c57a169e3c5a39997150531e450b0e494c`；commit timestamp `1520404505`；`.tar.zst` SHA256 `42dab453a7d8b3737109110083513467bad1cf71a0aaf671452595797b2b59b0`。仅更新 MIRROR_HASH，版本、commit、patches 和内置 src/server 均保留。 |
 
-WebUI 验证采用两条路径：浅抓取固定 Git commit、按 OpenWrt 25.12 rawgit 的
-git archive / 固定时间 / 排序 / gzip 参数连续生成两次，散列一致；另外从 codeload
-下载固定 commit，全部 109 个文件/链接的 Git blob SHA1 和模式与 GitHub REST 的
-固定 tree 一致，归一化后的散列也相同。官方 25.12 `dl_github_archive.py` 使用固定
-commit 和上述期望散列正常下载及校验通过。失败的滚动归档与正确导出有 14 项差异，
-其 `88adb092...` 散列不被接受。
+SmartDNS 的新归档直接使用固定 commit 的 codeload URL，与旧 rawgit 规范归档
+属于不同格式，不能混用 SHA256。实际下载的 core / WebUI 归档 SHA256 均与
+上游 recipe 一致，并逐项核对归档文件、链接、可执行模式的 Git blob 身份。
+LuCI JavaScript 通过 `node --check`，原 `smartdns-call` 通过 `sh -n`。
+证据保存在项目 `.evidence/4.0.0/release-update-20261029/smartdns`。
+以下 SSR 验证保持前次结论，本次没有改动 SSR。
 
 SSR 同样从固定 Git commit 按官方 rawgit 参数连续归档两次，散列一致；与现场失败文件
 的 737 个内容/模式/链接条目完全相符。现场保留的原始 Git tar 元数据也确认同一 commit。
@@ -75,5 +80,9 @@ SSR 同样从固定 Git commit 按官方 rawgit 参数连续归档两次，散�
 解包目录，再应用已有补丁；该本地服务器实现来自原有 ywb94/shadowsocks-libev，
 不是此次重新下载的源码，也未在此次修复中改动。
 
-上述验证在临时隔离容器中进行，现有构建卷只读挂载，无 `skip` 校验或主现场改动。
+前次 SSR 验证在临时隔离容器中进行；本次 SmartDNS 仅下载固定源码和静态核对，没有修改现有容器、卷、构建现场或缓存。
 这些结果证明源码身份和下载归档完整性，不代表组件已编译或设备运行通过。
+
+本次尚待统一完成 x86_64 与 ARM 两平台实际 prepare / download / 交叉编译及运行验收；
+尤其需确认 OpenSSL 3.5、zlib、HTTP/2 / DoQ / DoH3 链接与 DNS 转发启动。
+未选择的 WebUI 仅认证源码与准备路径，未执行 npm / Cargo 构建，也不表示 Rust 插件运行通过。
