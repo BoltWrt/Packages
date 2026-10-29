@@ -1077,6 +1077,23 @@ function gen_config(var)
 	local rule_set_table = {}
 	local COMMON = {}
 
+	-- Keep domain inversion separate from the record-family restriction.
+	-- Inverting a flat rule would negate both the domain and query_type.
+	local function set_dns_query_type(rule, query_type)
+		if rule.invert then
+			local domain_rule = {}
+			for _, key in ipairs({"domain", "domain_suffix", "domain_keyword", "domain_regex", "rule_set", "invert"}) do
+				domain_rule[key] = rule[key]
+				rule[key] = nil
+			end
+			rule.type = "logical"
+			rule.mode = "and"
+			rule.rules = {domain_rule, {query_type = query_type}}
+		else
+			rule.query_type = query_type
+		end
+	end
+
 	local CACHE_TEXT_FILE = CACHE_PATH .. "/cache_" .. flag .. ".txt"
 
 	local singbox_settings = uci:get_all(appname, "@global_singbox[0]") or {}
@@ -1982,10 +1999,10 @@ function gen_config(var)
 						local block_rule
 						if direct_strategy == "ipv4_only" then
 							block_rule = api.clone(dns_rule)
-							block_rule.query_type = { "AAAA" }
+							set_dns_query_type(block_rule, { "AAAA" })
 						elseif direct_strategy == "ipv6_only" then
 							block_rule = api.clone(dns_rule)
-							block_rule.query_type = { "A" }
+							set_dns_query_type(block_rule, { "A" })
 						end
 						if block_rule then
 							block_rule.action = "predefined"
@@ -2002,10 +2019,10 @@ function gen_config(var)
 							local block_rule
 							if remote_strategy == "ipv4_only" then
 								block_rule = api.clone(dns_rule)
-								block_rule.query_type = { "AAAA" }
+								set_dns_query_type(block_rule, { "AAAA" })
 							elseif remote_strategy == "ipv6_only" then
 								block_rule = api.clone(dns_rule)
-								block_rule.query_type = { "A" }
+								set_dns_query_type(block_rule, { "A" })
 							end
 							if block_rule then
 								block_rule.action = "predefined"
@@ -2027,11 +2044,11 @@ function gen_config(var)
 						if value.fakedns then
 							local fakedns_dns_rule = api.clone(dns_rule)
 							if remote_strategy == "ipv4_only" then
-								fakedns_dns_rule.query_type = { "A" }
+								set_dns_query_type(fakedns_dns_rule, { "A" })
 							elseif remote_strategy == "ipv6_only" then
-								fakedns_dns_rule.query_type = { "AAAA" }
+								set_dns_query_type(fakedns_dns_rule, { "AAAA" })
 							else
-								fakedns_dns_rule.query_type = { "A", "AAAA" }
+								set_dns_query_type(fakedns_dns_rule, { "A", "AAAA" })
 							end
 							fakedns_dns_rule.server = fakedns_tag
 							fakedns_dns_rule.rewrite_ttl = 30

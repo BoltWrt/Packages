@@ -46,6 +46,12 @@ route. FakeDNS only handles the permitted address record family. Other record
 types such as MX still reach the remote resolver. No rules, node types, backend
 selectors, or user-facing options are deleted.
 
+For inverted domain matches, the domain predicates and their `invert` flag are
+kept inside a separate logical subrule, ANDed with the address-record family.
+This prevents a flat inverted rule from negating the query-type restriction
+along with the domain match. Direct and remote single-stack filters and FakeDNS
+all use this composition; existing non-inverted output stays unchanged.
+
 Upstream's Hysteria field renaming was also inspected and tested. The official
 1.14.4 checker accepts the existing Hysteria fields; no rename is needed for
 this update. Existing UCI keys and protocol generators remain unchanged.
@@ -90,6 +96,14 @@ Evidence is under the parent workspace's
 - `assert-passwall-dns.py`, `compat-dns-assertions.json`: generated rule-order
   assertions include 12 direct/proxy A/AAAA decisions plus blocked-domain and MX
   fallback behavior for the seven cases.
+- `test-passwall-invert.py`, `compat-invert-results.json`, `invert-fixtures/`:
+  two additional actual generator cases cover inverted direct IPv4 and inverted
+  remote IPv6 with FakeDNS. An explicit logical/invert rule evaluator checks
+  24 domain/record-family decisions (four matching or nonmatching domains times
+  A/AAAA/MX for both cases). Both pre-fix negative controls reproduce wrong
+  decisions; both corrected configurations pass the official core checker.
+  Two existing non-inverted mixed-stack generated JSON outputs are identical
+  to the earlier saved fixtures; the earlier core checks were not repeated.
 - `test-passwall-protocols.py`, `compat-protocol-results.json`, `protocol-fixtures/`:
   actual unchanged outbound generators for Hysteria, Hysteria2 port hopping,
   TUIC, VLESS, VMess, Trojan and AnyTLS pass the official core checker. The
