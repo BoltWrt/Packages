@@ -11,14 +11,14 @@
 
 | 项目 | 处理与用途 |
 | --- | --- |
-| PassWall2 26.4.20 | 保留代理管理与现有 opkg/apk 双路径；无需批量重写安装检测。 |
+| PassWall2 26.4.20-r2 | 保留全部已有后端、UI和opkg/apk路径，回迁Sing-box1.14 DNS兼容及反向匹配修复；不整包升级到删除既有SS-libev的26.10.29。详见组件README。 |
 | SmartDNS 48.4 | recipe 固定上游 gitlink `1db3543cfaa397cd1115b0479416f73062711a63`，LuCI 固定 `581e5e816d92d3a663b1b2e331e3f21685968cf1`（1.2026.48.2-r2）。core 使用正式 `Release48.4`，Rust include 和固定 codeload 下载已由上游修复；增加 core 必需的 zlib 依赖。 |
 | Argon | 保留主题 gitlink `f075cb18cb83d0108a18f79b17888420e3d2d986`。 |
-| Go | 移除本地 1.26.2 工具链覆盖，使用官方 Go 1.26.9。第三方源码要求：Xray 1.26；Sing-box 1.24.7；Hysteria 1.24.0 / toolchain 1.25.1；GeoView 1.24.0；xray-plugin 1.25；v2ray-plugin 1.25.5。 |
-| Rust | 使用官方 1.96.0；Shadowsocks-rust 1.24.0 声明最低 1.88，ShadowTLS 0.2.25 使用 edition 2021。版本约束满足不代表已经完成交叉编译。 |
+| Go | 移除本地 1.26.2 工具链覆盖，使用官方 Go 1.26.9。第三方源码要求：Xray 1.26；Sing-box 1.25.5；Hysteria 1.24.0 / toolchain 1.25.1；GeoView 1.25.0；xray-plugin 1.25；v2ray-plugin 1.25.5。 |
+| Rust | 使用官方 1.96.0；Shadowsocks-rust 1.25.0 声明最低 1.91，ShadowTLS 0.2.25 使用 edition 2021。版本约束满足不代表已经完成交叉编译。 |
 | Python | 移除未被两个目标配置选用、也未被本 feed 依赖的旧 PySocks / Unidecode 包，不覆盖官方 Python 基础设施。 |
 | Aliyun DDNS | 移除 `ddns-scripts_aliyun`，目标配置使用官方 `ddns-scripts-aliyun`，避免重复拥有更新脚本与 JSON 服务定义。 |
-| 其他代理组件 | 保留现有固定版本及校验和；`microsocks`、`sing-box`、`v2ray-geodata`、`xray-core`、`smartdns` 与官方提供者重叠，构建脚本必须明确选择 BoltWrt 提供者；LuCI SmartDNS 同理。 |
+| 其他代理组件 | 固定Sing-box1.14.4、GeoView0.2.9、2026-10 GeoIP/Geosite；NaiveProxy154.0.8037.49-5更新原21架构散列但两产品仍未选用。Xray26.3.27-r2与libev3.3.5-r14回迁必要官方安全修复；`microsocks`、`sing-box`、`v2ray-geodata`、`xray-core`、`smartdns` 与官方提供者重叠，构建脚本必须明确选择 BoltWrt 提供者；LuCI SmartDNS 同理。 |
 
 ### Aliyun DDNS 配置核对
 
@@ -34,7 +34,7 @@ AccessKey Secret，IPv4 / IPv6 JSON 均调用 `update_aliyun_com.sh`。
 
 ### 最少验证与边界
 
-本次工具链裁决核对了上述固定官方 Makefile、第三方对应版本的 `go.mod` /
+前次工具链裁决核对了固定官方 Makefile、对应版本的 `go.mod` /
 `Cargo.toml`、两个目标配置和 DDNS 安装路径。`git diff --check` 用于提交检查。
 PassWall2 的包检测保留已有 `/lib/apk/packages/*.list` 和 `apk list` 分支。
 其 `root` 目录全部 shell 脚本通过宿主 `sh -n` 语法检查；版本管道分别使用
@@ -86,3 +86,15 @@ SSR 同样从固定 Git commit 按官方 rawgit 参数连续归档两次，散�
 本次尚待统一完成 x86_64 与 ARM 两平台实际 prepare / download / 交叉编译及运行验收；
 尤其需确认 OpenSSL 3.5、zlib、HTTP/2 / DoQ / DoH3 链接与 DNS 转发启动。
 未选择的 WebUI 仅认证源码与准备路径，未执行 npm / Cargo 构建，也不表示 Rust 插件运行通过。
+
+### 2026-10-29安全与配置更新
+
+Xray保留正式26.3.27，包修订升至2，回迁官方`64fada32b5b9e6ae064a038fa0e4e2b766499bd5`以修复GHSA-5wf9-h793-w73c的CA固定名称校验和目标传递。候选26.7.11/26.7.28的GitHub API标为预发布，较新版本要求Go1.27，未引入这些版本或更换工具链。
+
+Shadowsocks-libev保留固定3.3.5源码和原三个补丁，修订升至14，仅回迁官方`b2a0c545d8ce2d35ba3f4a77fe710861b1b74628`的JSON溢出检查。3.3.6的AEAD缓冲无界增长修复针对其新增优化回归，旧基线不受该回归影响，不为追版本引入CMake及密码实现变化。
+
+Shadowsocks-rust1.25.0正式归档已双重认证；保留原default full、local-redir和五组件，锁定registry依赖checksum核对通过，声明最高MSRV1.91满足现有Rust1.96。未声明MSRV的依赖、AWS-LC原生C/汇编及UDP语义仍需实际目标构建和相应运行检查。
+
+Sing-box1.14.4和GeoView0.2.9使用固定tag对应commit的归档，逐项Git blob/模式认证通过；显式PKG_BUILD_DIR匹配commit归档目录。GeoIP/Geosite实际下载同时匹配官方API digest及独立checksum文本。NaiveProxy原21架构hash匹配API，两产品架构的实际预编译载荷另核SHA、ELF及依赖；未选架构没有据此宣称已构建。
+
+以上源码、下载和配置检查尚不能替代更新后双平台实际编译、APK/镜像绑定和本机回归；原固件产物不追认为这些更新的构建结果。固定来源、功能映射及检查证据见主仓4.0.0发布前复核和项目`.evidence/4.0.0/release-update-20261029/`。
