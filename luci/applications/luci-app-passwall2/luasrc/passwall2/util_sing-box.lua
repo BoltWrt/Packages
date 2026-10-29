@@ -1764,7 +1764,6 @@ function gen_config(var)
 		rules = {},
 		disable_cache = (dns_cache and dns_cache == "0") and true or false,
 		disable_expire = false, -- Disable DNS cache expiration.
-		independent_cache = false, -- Make each DNS server's cache independent for specific purposes. If enabled, it will slightly reduce performance.
 		reverse_mapping = true, -- After responding to a DNS query, a reverse mapping of the IP address is stored to provide the domain name for routing purposes.
 	}
 
@@ -1951,6 +1950,12 @@ function gen_config(var)
 		else default_dns_flag = "direct"
 		end
 		dns.final = default_dns_flag
+		-- Single-stack (ipv4_only / ipv6_only) is enforced per-domain via the
+		-- query_type / reject rules generated below. The global dns.strategy applies
+		-- to every DNS server that does not set its own query_strategy, so keep it
+		-- dual-stack; otherwise a single-stack choice on one path would also force the
+		-- other path (e.g. direct / CN domains) into single-stack. See issue #1220.
+		dns.strategy = "prefer_ipv6"
 
 		-- DNS in order of shunt
 		if dns_domain_rules and #dns_domain_rules > 0 then
@@ -1974,12 +1979,43 @@ function gen_config(var)
 						dns_rule.server = nil
 					end
 					if value.outboundTag == "direct" then
-						dns_rule.strategy = direct_strategy
+						local block_rule
+						if direct_strategy == "ipv4_only" then
+							block_rule = api.clone(dns_rule)
+							block_rule.query_type = { "AAAA" }
+						elseif direct_strategy == "ipv6_only" then
+							block_rule = api.clone(dns_rule)
+							block_rule.query_type = { "A" }
+						end
+						if block_rule then
+							block_rule.action = "predefined"
+							block_rule.rcode = "NOERROR"
+							block_rule.disable_cache = nil
+							block_rule.server = nil
+							table.insert(dns.rules, block_rule)
+						end
 					end
 					if value.outboundTag ~= "block" and value.outboundTag ~= "direct" then
 						dns_rule.server = "remote"
 						dns_rule.rewrite_ttl = 30
-						dns_rule.strategy = remote_strategy
+						if true then
+							local block_rule
+							if remote_strategy == "ipv4_only" then
+								block_rule = api.clone(dns_rule)
+								block_rule.query_type = { "AAAA" }
+							elseif remote_strategy == "ipv6_only" then
+								block_rule = api.clone(dns_rule)
+								block_rule.query_type = { "A" }
+							end
+							if block_rule then
+								block_rule.action = "predefined"
+								block_rule.rcode = "NOERROR"
+								block_rule.disable_cache = nil
+								block_rule.server = nil
+								block_rule.rewrite_ttl = nil
+								table.insert(dns.rules, block_rule)
+							end
+						end
 						dns_rule.client_subnet = remote_dns_client_ip
 						if value.outboundTag ~= COMMON.default_outbound_tag and remote_server.server and remote_dns_detour ~= "direct" then
 							local remote_dns_server = api.clone(remote_server)
@@ -1990,10 +2026,15 @@ function gen_config(var)
 						end
 						if value.fakedns then
 							local fakedns_dns_rule = api.clone(dns_rule)
-							fakedns_dns_rule.query_type = {
-								"A", "AAAA"
-							}
+							if remote_strategy == "ipv4_only" then
+								fakedns_dns_rule.query_type = { "A" }
+							elseif remote_strategy == "ipv6_only" then
+								fakedns_dns_rule.query_type = { "AAAA" }
+							else
+								fakedns_dns_rule.query_type = { "A", "AAAA" }
+							end
 							fakedns_dns_rule.server = fakedns_tag
+							fakedns_dns_rule.rewrite_ttl = 30
 							fakedns_dns_rule.disable_cache = true
 							fakedns_dns_rule.client_subnet = nil
 							table.insert(dns.rules, fakedns_dns_rule)
@@ -2004,26 +2045,42 @@ function gen_config(var)
 			end
 		end
 		if default_dns_flag == "remote" then
+			local block_rule
+			local dns_rule_query_type = { "A", "AAAA" }
+			if remote_strategy == "ipv4_only" then
+				block_rule = {
+					query_type = { "AAAA" },
+					action = "predefined",
+					rcode = "NOERROR"
+				}
+				dns_rule_query_type = { "A" }
+			elseif remote_strategy == "ipv6_only" then
+				block_rule = {
+					query_type = { "A" },
+					action = "predefined",
+					rcode = "NOERROR"
+				}
+				dns_rule_query_type = { "AAAA" }
+			end
+			if block_rule then
+				table.insert(dns.rules, block_rule)
+			end
 			if remote_dns_fake then
 				-- When default is not direct and enable fakedns, default DNS use FakeDNS.
 				local fakedns_dns_rule = {
-					query_type = {
-						"A", "AAAA"
-					},
+					query_type = dns_rule_query_type,
 					server = fakedns_tag,
 					disable_cache = true,
-					rewrite_ttl = 30,
-					strategy = remote_strategy,
+					rewrite_ttl = 30
 				}
 				table.insert(dns.rules, fakedns_dns_rule)
-			else
-				local remote_dns_rule = {
-					server = "remote",
-					disable_cache = true,
-					strategy = remote_strategy,
-				}
-				table.insert(dns.rules, remote_dns_rule)
 			end
+			local remote_dns_rule = {
+				server = "remote",
+				disable_cache = true,
+				rewrite_ttl = 30
+			}
+			table.insert(dns.rules, remote_dns_rule)
 		end
 		local dns_in_inbound = {
 			type = "direct",
