@@ -99,7 +99,7 @@ define Build/Prepare
 	$(call Build/Prepare/Default)
 	$(INSTALL_DIR) $(PKG_BUILD_DIR)/dep
 	unzip -q $(DL_DIR)/$(WOLFSSL_SOURCE) -d $(PKG_BUILD_DIR)/dep
-	$(MV) $(PKG_BUILD_DIR)/dep/wolfssl-$(WOLFSSL_VERSION) $(PKG_BUILD_DIR)/dep/wolfssl-$(WOLFSSL_VERSION)-stable
+	mv $(PKG_BUILD_DIR)/dep/wolfssl-$(WOLFSSL_VERSION) $(PKG_BUILD_DIR)/dep/wolfssl-$(WOLFSSL_VERSION)-stable
 endef
 
 define Build/Configure
