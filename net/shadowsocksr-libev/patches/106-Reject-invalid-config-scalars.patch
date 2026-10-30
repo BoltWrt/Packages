@@ -5,7 +5,7 @@
  #include <string.h>
  #include <time.h>
 +#include <limits.h>
- 
+
  #include "utils.h"
  #include "jconf.h"
 @@ -44,9 +45,10 @@
@@ -24,7 +24,7 @@
 @@ -168,9 +170,13 @@
          FATAL("Invalid config path.");
      }
- 
+
 -    fseek(f, 0, SEEK_END);
 +    if (fseek(f, 0, SEEK_END) != 0) {
 +        FATAL("Failed to seek the config file.");
@@ -34,7 +34,7 @@
 +    if (pos < 0 || fseek(f, 0, SEEK_SET) != 0) {
 +        FATAL("Failed to read the config size.");
 +    }
- 
+
      if (pos >= MAX_CONF_SIZE) {
          FATAL("Too large config file.");
 @@ -260,6 +266,8 @@
@@ -44,7 +44,7 @@
 +                    check_json_value_type(value, json_string,
 +                                          "invalid config file: option mode must be a string");
                      char *mode_str = to_string(value);
- 
+
                      if (strcmp(mode_str, "tcp_only") == 0)
 @@ -314,6 +322,8 @@
                  } else if (strcmp(name, "tunnel_address") == 0) {
@@ -53,5 +53,5 @@
 +                    check_json_value_type(value, json_string,
 +                                          "invalid config file: option mode must be a string");
                      char *mode_str = to_string(value);
- 
+
                      if (strcmp(mode_str, "tcp_only") == 0)
