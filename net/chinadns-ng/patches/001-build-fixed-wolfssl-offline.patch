@@ -40,7 +40,7 @@
  }
  
  // =========================================================================
-@@ -601,15 +596,17 @@
+@@ -601,15 +596,18 @@
          \\  export ZIG_GLOBAL_CACHE_DIR="$zig_cache_dir"
          \\
          \\  [ "$is_musl" = 1 ] && pic_flags='-fno-pic -fno-PIC' || pic_flags=''
@@ -50,6 +50,7 @@
 +        \\  test -n "$CHINADNS_WOLFSSL_CC" || exit 1
 +        \\  test -n "$CHINADNS_WOLFSSL_AR" || exit 1
 +        \\  test -n "$CHINADNS_WOLFSSL_RANLIB" || exit 1
++        \\  export CPPFLAGS="-I$PWD $CHINADNS_WOLFSSL_CPPFLAGS"
 +        \\  export CC="$CHINADNS_WOLFSSL_CC -g0 -O3 -fno-lto -fno-pie -fno-PIE $pic_flags -ffunction-sections -fdata-sections"
 +        \\  export AR="$CHINADNS_WOLFSSL_AR"
 +        \\  export RANLIB="$CHINADNS_WOLFSSL_RANLIB"
@@ -62,7 +63,7 @@
          \\  ./configure \
          \\      $host \
          \\      $aesni \
-@@ -619,8 +616,20 @@
+@@ -619,8 +617,20 @@
          \\      --prefix="$install_dir" \
          \\      --enable-static \
          \\      --disable-shared \
@@ -84,7 +85,7 @@
          \\      --disable-oldnames \
          \\      --enable-sys-ca-certs \
          \\      --disable-memory \
-@@ -702,6 +711,8 @@
+@@ -702,6 +712,8 @@
  }
  
  fn setup_libexeobj_step(step: *LibExeObjStep) void {
@@ -93,7 +94,7 @@
      step.setTarget(_target);
      step.setBuildMode(_mode);
  
-@@ -864,8 +875,7 @@
+@@ -864,8 +876,7 @@
  
      // link wolfssl library
      if (_enable_wolfssl) {

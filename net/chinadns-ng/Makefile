@@ -121,7 +121,8 @@ define Build/Compile
 	cd $(PKG_BUILD_DIR) && \
 		ZIG_LOCAL_CACHE_DIR=$(PKG_BUILD_DIR)/zig-cache \
 		ZIG_GLOBAL_CACHE_DIR=$(PKG_BUILD_DIR)/zig-cache \
-		CHINADNS_WOLFSSL_CC="$(TARGET_CC) $(TARGET_CPPFLAGS) $(filter-out -flto% -fuse-linker-plugin,$(TARGET_CFLAGS))" \
+		CHINADNS_WOLFSSL_CC="$(TARGET_CC) $(filter-out -flto% -fuse-linker-plugin,$(TARGET_CFLAGS))" \
+		CHINADNS_WOLFSSL_CPPFLAGS="$(TARGET_CPPFLAGS)" \
 		CHINADNS_WOLFSSL_AR="$(TARGET_AR)" \
 		CHINADNS_WOLFSSL_RANLIB="$(TARGET_RANLIB)" \
 		$(if $(filter mips mipsel,$(ARCH)),MIPS_M_ARCH=mips32 MIPS_SOFT_FP=$(if $(CONFIG_HAS_FPU),0,1)) \
