@@ -2,76 +2,89 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=chinadns-ng
 PKG_VERSION:=2025.08.09
-PKG_RELEASE:=1
+PKG_RELEASE:=2
+PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.gz
+PKG_SOURCE_URL:=https://codeload.github.com/zfl9/chinadns-ng/tar.gz/refs/tags
+PKG_SOURCE_URL_FILE:=$(PKG_VERSION)
+PKG_HASH:=b7c76725e1635a047f1cfda31df3cc2702ae2abca55ed96e52da3fc979a107be
+PKG_BUILD_DEPENDS:=chinadns-zig/host
+PKG_BUILD_PARALLEL:=0
+
+WOLFSSL_VERSION:=5.9.4
+WOLFSSL_SOURCE:=wolfssl-$(WOLFSSL_VERSION).zip
+CHINADNS_ZIG:=$(STAGING_DIR_HOSTPKG)/lib/chinadns-zig/zig
+CHINADNS_NOASM:=false
 
 ifeq ($(ARCH),aarch64)
   ifeq ($(BOARD),rockchip)
-    PKG_ARCH:=chinadns-ng+wolfssl@aarch64-linux-musl@generic+v8a@fast+lto
-    PKG_HASH:=3fe0217615dd7060b7287d2b6b31d2a0b364137398bfb335a03bead322eac716
+    CHINADNS_TARGET:=aarch64-linux-musl
+    CHINADNS_CPU:=generic+v8a
   else
-    PKG_ARCH:=chinadns-ng+wolfssl_noasm@aarch64-linux-musl@generic+v8a@fast+lto
-    PKG_HASH:=42ddd494200ec6d88b35902927688d316bc23e06e6c08d9e01eb2412196ab845
+    CHINADNS_TARGET:=aarch64-linux-musl
+    CHINADNS_CPU:=generic+v8a
+    CHINADNS_NOASM:=true
   endif
 else ifeq ($(ARCH),arm)
   ifeq ($(CONFIG_arm_v6),y)
-    PKG_ARCH:=chinadns-ng+wolfssl@arm-linux-musleabi@generic+v6+soft_float@fast+lto
-    PKG_HASH:=0a401d1dc11129481b2baf86f847d55d66bd7e725cba4bf57875fdad27ef0052
+    CHINADNS_TARGET:=arm-linux-musleabi
+    CHINADNS_CPU:=generic+v6+soft_float
   else ifeq ($(CONFIG_arm_v7),y)
     ifeq ($(CONFIG_HAS_FPU),y)
-      PKG_ARCH:=chinadns-ng+wolfssl@arm-linux-musleabihf@generic+v7a@fast+lto
-      PKG_HASH:=dfa1f6ba80fb0925613822f4c4e00df8da68e7b8b772048d26a0d1a9d07d346b
+      CHINADNS_TARGET:=arm-linux-musleabihf
+      CHINADNS_CPU:=generic+v7a
     else
-      PKG_ARCH:=chinadns-ng+wolfssl@arm-linux-musleabi@generic+v6+soft_float@fast+lto
-      PKG_HASH:=0a401d1dc11129481b2baf86f847d55d66bd7e725cba4bf57875fdad27ef0052
+      CHINADNS_TARGET:=arm-linux-musleabi
+      CHINADNS_CPU:=generic+v6+soft_float
     endif
   else
-    PKG_ARCH:=chinadns-ng+wolfssl@arm-linux-musleabi@generic+v5te+soft_float@fast+lto
-    PKG_HASH:=dc104953fcd95c1c98b7b2b54b0b6731565e0650f81230e6de127a486803f42f
+    CHINADNS_TARGET:=arm-linux-musleabi
+    CHINADNS_CPU:=generic+v5te+soft_float
   endif
 else ifeq ($(ARCH),mips)
-  PKG_ARCH:=chinadns-ng+wolfssl@mips-linux-musl@mips32+soft_float@fast+lto
-  PKG_HASH:=b610821a8f61b0ed3c8c7e82e10d401348a9de17f900988589024a37c4099c8e
+  CHINADNS_TARGET:=mips-linux-musl
+  CHINADNS_CPU:=mips32+soft_float
 else ifeq ($(ARCH),mipsel)
   ifeq ($(CONFIG_HAS_FPU),)
-    PKG_ARCH:=chinadns-ng+wolfssl@mipsel-linux-musl@mips32+soft_float@fast+lto
-    PKG_HASH:=760544a88724e3b1b9eac79c9400231e81aa8786f8f00a979229e175811ffe6d
+    CHINADNS_TARGET:=mipsel-linux-musl
+    CHINADNS_CPU:=mips32+soft_float
   else
-    PKG_ARCH:=chinadns-ng+wolfssl@mipsel-linux-musl@mips32@fast+lto
-    PKG_HASH:=ec547c31a884e0967437ceb90a5c270864efe81b0e40939e0ec2810c7bfd6653
+    CHINADNS_TARGET:=mipsel-linux-musl
+    CHINADNS_CPU:=mips32
   endif
 else ifeq ($(ARCH),mips64)
-  PKG_ARCH:=chinadns-ng+wolfssl@mips64-linux-musl@mips64+soft_float@fast+lto
-  PKG_HASH:=2d0fce18a7ef1d74fdc12738767e66998a52c2b30d8790da760933853fe8726e
+  CHINADNS_TARGET:=mips64-linux-musl
+  CHINADNS_CPU:=mips64+soft_float
 else ifeq ($(ARCH),mips64el)
-  PKG_ARCH:=chinadns-ng+wolfssl@mips64el-linux-musl@mips64+soft_float@fast+lto
-  PKG_HASH:=a301d8d200d06582c60bbe0e487a28f5b41e6f0997a548cf882a7b078dab089c
+  CHINADNS_TARGET:=mips64el-linux-musl
+  CHINADNS_CPU:=mips64+soft_float
 else ifeq ($(ARCH),i386)
   ifneq ($(CONFIG_TARGET_x86_geode)$(CONFIG_TARGET_x86_legacy),)
-    PKG_ARCH:=chinadns-ng+wolfssl@i386-linux-musl@i686@fast+lto
-    PKG_HASH:=85e057dd0a0e8913b30471737436ab8b71834c494ed9f9e53544261b1ffdc8d6
+    CHINADNS_TARGET:=i386-linux-musl
+    CHINADNS_CPU:=i686
   else
-    PKG_ARCH:=chinadns-ng+wolfssl@i386-linux-musl@pentium4@fast+lto
-    PKG_HASH:=2d0f1a05c82f2e21e71a6618c7f1d2e7f46aa6a21535d774d517e87ec00c989b
+    CHINADNS_TARGET:=i386-linux-musl
+    CHINADNS_CPU:=pentium4
   endif
 else ifeq ($(ARCH),x86_64)
-  PKG_ARCH:=chinadns-ng+wolfssl@x86_64-linux-musl@x86_64@fast+lto
-  PKG_HASH:=842ea4e9816efd91d39bc76ead5c4a42e79011757e37c521b4270b675cfcb30c
+  CHINADNS_TARGET:=x86_64-linux-musl
+  CHINADNS_CPU:=x86_64
 else ifeq ($(ARCH),riscv64)
-  PKG_ARCH:=chinadns-ng+wolfssl@riscv64-linux-musl@baseline_rv64@fast+lto
-  PKG_HASH:=7056f47f4d6b20109e007792694dc83e5eac44c9265d7be20f6dc10375b35a9b
-else
-  PKG_HASH:=dummy
+  CHINADNS_TARGET:=riscv64-linux-musl
+  CHINADNS_CPU:=baseline_rv64
 endif
 
-PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION)-$(ARCH_PACKAGES)
-PKG_SOURCE_URL:=https://github.com/zfl9/chinadns-ng/releases/download/$(PKG_VERSION)/$(PKG_ARCH)?
-UNPACK_CMD=$(CP) $(DL_DIR)/$(PKG_SOURCE) $(PKG_BUILD_DIR)/$(PKG_NAME)
-
-PKG_LICENSE:=AGPL-3.0-only
-PKG_LICENSE_FILES:=LICENSE
+PKG_LICENSE:=AGPL-3.0-only GPL-3.0-only
+PKG_LICENSE_FILES:=LICENSE dep/wolfssl-$(WOLFSSL_VERSION)-stable/COPYING dep/wolfssl-$(WOLFSSL_VERSION)-stable/LICENSING
 PKG_MAINTAINER:=sbwml <admin@cooluc.com>
 
 include $(INCLUDE_DIR)/package.mk
+
+define Download/chinadns-wolfssl
+  FILE:=$(WOLFSSL_SOURCE)
+  URL:=https://www.wolfssl.com
+  HASH:=9cd0d69d208d025b16836c177658cc0deebc2a85c4b60898c9bc546bc6cbdf18
+endef
+$(eval $(call Download,chinadns-wolfssl))
 
 define Package/chinadns-ng
   SECTION:=net
@@ -82,12 +95,47 @@ define Package/chinadns-ng
   DEPENDS:=@(aarch64||arm||i386||mips||mipsel||mips64||mips64el||x86_64||riscv64)
 endef
 
+define Build/Prepare
+	$(call Build/Prepare/Default)
+	$(INSTALL_DIR) $(PKG_BUILD_DIR)/dep
+	unzip -q $(DL_DIR)/$(WOLFSSL_SOURCE) -d $(PKG_BUILD_DIR)/dep
+	mv $(PKG_BUILD_DIR)/dep/wolfssl-$(WOLFSSL_VERSION) $(PKG_BUILD_DIR)/dep/wolfssl-$(WOLFSSL_VERSION)-stable
+endef
+
+define Build/Configure
+	[ -n "$(CHINADNS_TARGET)" ] || { echo 'Unsupported chinadns-ng target'; exit 1; }
+	printf '%s\n' \
+		'include_dir=$(TOOLCHAIN_DIR)/include' \
+		'sys_include_dir=$(TOOLCHAIN_DIR)/include' \
+		'crt_dir=$(TOOLCHAIN_DIR)/lib' \
+		'msvc_lib_dir=' 'kernel32_lib_dir=' 'gcc_dir=' \
+		> $(PKG_BUILD_DIR)/openwrt-musl.conf
+endef
+
+# The upstream build only uses Zig and libc. Explicit --libc makes both Zig
+# objects use the locked OpenWrt target musl, never Zig's bundled one.
+# wolfSSL uses OpenWrt GCC without GCC LTO, then links as one exact static archive.
+# Dependency archives are supplied by OpenWrt Download with fixed SHA-256 values;
+# the patched Zig build fails closed if an archive is missing.
 define Build/Compile
+	cd $(PKG_BUILD_DIR) && \
+		ZIG_LOCAL_CACHE_DIR=$(PKG_BUILD_DIR)/zig-cache \
+		ZIG_GLOBAL_CACHE_DIR=$(PKG_BUILD_DIR)/zig-cache \
+		CHINADNS_WOLFSSL_CC="$(TARGET_CC) $(filter-out -flto% -fuse-linker-plugin,$(TARGET_CFLAGS))" \
+		CHINADNS_WOLFSSL_CPPFLAGS="$(TARGET_CPPFLAGS)" \
+		CHINADNS_WOLFSSL_AR="$(TARGET_AR)" \
+		CHINADNS_WOLFSSL_RANLIB="$(TARGET_RANLIB)" \
+		$(if $(filter mips mipsel,$(ARCH)),MIPS_M_ARCH=mips32 MIPS_SOFT_FP=$(if $(CONFIG_HAS_FPU),0,1)) \
+		$(CHINADNS_ZIG) build \
+			--libc $(PKG_BUILD_DIR)/openwrt-musl.conf \
+			-Dtarget=$(CHINADNS_TARGET) -Dcpu=$(CHINADNS_CPU) \
+			-Dwolfssl=true -Dwolfssl-noasm=$(CHINADNS_NOASM) \
+			-Dmode=fast -Dlto=true -Dname=chinadns-ng
 endef
 
 define Package/chinadns-ng/install
 	$(INSTALL_DIR) $(1)/usr/bin
-	$(INSTALL_BIN) $(PKG_BUILD_DIR)/chinadns-ng $(1)/usr/bin
+	$(INSTALL_BIN) $(PKG_BUILD_DIR)/zig-out/bin/chinadns-ng $(1)/usr/bin
 endef
 
 $(eval $(call BuildPackage,chinadns-ng))
