@@ -363,11 +363,16 @@ function add_node()
 
 	uci:set(appname, uuid, "type", "Xray")
 
+	local saved = api.uci_save(uci, appname, redirect ~= "1", redirect ~= "1")
+	if not saved then
+		http.status(500, "Failed to save node")
+		http_write_json({error = "Failed to save node"})
+		return
+	end
+
 	if redirect == "1" then
-		api.uci_save(uci, appname)
 		http.redirect(api.url("node_config", uuid))
 	else
-		api.uci_save(uci, appname, true, true)
 		http_write_json({result = uuid})
 	end
 end
