@@ -106,13 +106,13 @@ function gen_config(var)
 				t = tonumber(tostring(t or "0"):match("^%d+"))
 				return (t and t >= 2 and t <= 60) and t .. "s" or nil
 			end)(node.hysteria2_keep_alive_period),
-			disablePathMTUDiscovery = (node.hysteria2_disable_mtu_discovery) and true or false,
+			disablePathMTUDiscovery = (node.hysteria2_disable_mtu_discovery == "1") and true or false,
 		},
 		bandwidth = (node.hysteria2_up_mbps or node.hysteria2_down_mbps) and {
 			up = node.hysteria2_up_mbps and node.hysteria2_up_mbps .. " mbps" or nil,
 			down = node.hysteria2_down_mbps and node.hysteria2_down_mbps .. " mbps" or nil
 		} or nil,
-		fast_open = (node.fast_open == "1") and true or false,
+		fastOpen = (node.fast_open == "1") and true or false,
 		lazy = (node.hysteria2_lazy_start == "1") and true or false,
 		socks5 = (local_socks_address and local_socks_port) and {
 			listen = local_socks_address .. ":" .. local_socks_port,
