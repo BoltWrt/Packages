@@ -62,22 +62,19 @@ end
 
 function uci_save(cursor, config, commit, apply)
 	if is_old_uci() then
-		cursor:save(config)
+		local ok, err = cursor:save(config)
+		if not ok then return ok, err end
 		if commit then
-			cursor:commit(config)
+			ok, err = cursor:commit(config)
+			if not ok then return ok, err end
 			if apply then
 				sys.call("/etc/init.d/" .. config .. " reload > /dev/null 2>&1 &")
 			end
 		end
+		return true
 	else
-		commit = true
-		if commit then
-			if apply then
-				cursor:commit(config)
-			else
-				sh_uci_commit(config)
-			end
-		end
+		-- The RPC cursor stages changes in its session, not the shell UCI savedir.
+		return cursor:commit(config)
 	end
 end
 

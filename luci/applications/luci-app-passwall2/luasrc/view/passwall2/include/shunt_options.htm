@@ -10,13 +10,16 @@
 	function check_fakedns(id, val) {
 		const dom_id = "cbid.table." + id + ".";
 		const fakedns_dom = document.getElementById(dom_id + "_fakedns");
-		if (!val) {
+		if (!fakedns_dom) return;
+		const fakedns_input = fakedns_dom.matches('input[type="checkbox"]') ? fakedns_dom : fakedns_dom.querySelector('input[type="checkbox"]');
+		if (!fakedns_input) return;
+		if (val === undefined || val === null) {
 			const selectNode = document.getElementById(dom_id + "_node");
+			if (!selectNode) return;
 			val = selectNode.value;
 		}
 		if (val == "" || val == "_direct") {
-			fakedns_dom.value = 0;
-			fakedns_dom.checked = false;
+			fakedns_input.checked = false;
 			fakedns_dom.classList.add('hidden');
 		} else {
 			fakedns_dom.classList.remove('hidden');
@@ -26,8 +29,10 @@
 		const dom_id = "cbid.table." + id + ".";
 		const cbid = dom_id + "_proxy_tag";
 		const proxy_tag_dom = document.getElementById(cbid + ".main");
-		if (!val) {
+		if (!proxy_tag_dom) return;
+		if (val === undefined || val === null) {
 			const selectNode = document.getElementById(dom_id + "_node");
+			if (!selectNode) return;
 			val = selectNode.value;
 		}
 		if (val == "" || val.startsWith("_") || val.startsWith("Socks_") || !normal_list.find(element => element.id == val)) {
@@ -37,6 +42,7 @@
 			const labelSpan = document.getElementById(cbid + ".label");
 			const searchInput = document.getElementById(cbid + ".search");
 			const listContainer = document.getElementById(cbid + ".list");
+			if (!hiddenSelect || !labelSpan || !searchInput || !listContainer) return;
 			lv_change(cbid, listContainer, hiddenSelect, labelSpan, searchInput, "", "<%:Close (Not use)%>");
 			proxy_tag_dom.classList.add('hidden');
 		} else {
@@ -60,17 +66,24 @@
 			const trs = table_dom.getElementsByTagName("tr");
 			for (let i = 1; i < trs.length;i++) {
 				const selectNode = document.getElementById("cbid.table." + i + "._node.main");
+				if (!selectNode) continue;
 				selectNode.addEventListener("change", function(el){
 					let new_val = el.target.value
 					check_fakedns(i, new_val);
 					check_proxy_tag(i, new_val);
 				});
 				if (i == trs.length - 1) {
-					const newArray = window.lv_dropdown_data["cbid.table." + i + "._node"].ungrouped.filter(item => item.key !== "_default");
-					window.lv_dropdown_data["cbid.table." + i + "._node"].ungrouped = newArray
+					const dropdown = window.lv_dropdown_data && window.lv_dropdown_data["cbid.table." + i + "._node"];
+					if (dropdown && dropdown.ungrouped) {
+						dropdown.ungrouped = dropdown.ungrouped.filter(item => item.key !== "_default");
+					}
 				}
 			}
 		}
+	});
+	// LuCI replaces checkbox placeholders asynchronously after DOMContentLoaded.
+	document.addEventListener("luci-loaded", function () {
+		Promise.resolve().then(refresh_depends);
 	});
 	//]]>
 </script>

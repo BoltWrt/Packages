@@ -1,0 +1,78 @@
+--- a/src/json.c
++++ b/src/json.c
+@@ -46,6 +46,7 @@
+ #include <string.h>
+ #include <ctype.h>
+ #include <math.h>
++#include <limits.h>
+
+ typedef unsigned short json_uchar;
+
+@@ -747,14 +748,31 @@
+                                 }
+                             } else {
+                                 flags |= flag_num_e_got_sign;
++                                if (num_e > (LONG_MAX - (b - '0')) / 10) {
++                                    goto e_overflow;
++                                }
+                                 num_e  = (num_e * 10) + (b - '0');
+                                 continue;
+                             }
+
+-                            top->u.integer = (top->u.integer * 10) + (b - '0');
++                            /* Accumulate negatives directly to preserve INT64_MIN. */
++                            if (flags & flag_num_negative) {
++                                if (top->u.integer < (INT64_MIN + (b - '0')) / 10) {
++                                    goto e_overflow;
++                                }
++                                top->u.integer = (top->u.integer * 10) - (b - '0');
++                            } else {
++                                if (top->u.integer > (INT64_MAX - (b - '0')) / 10) {
++                                    goto e_overflow;
++                                }
++                                top->u.integer = (top->u.integer * 10) + (b - '0');
++                            }
+                             continue;
+                         }
+
++                        if (num_fraction > (INT64_MAX - (b - '0')) / 10) {
++                            goto e_overflow;
++                        }
+                         num_fraction = (num_fraction * 10) + (b - '0');
+                         continue;
+                     }
+@@ -778,7 +796,8 @@
+                         }
+
+                         top->type  = json_double;
+-                        top->u.dbl = (double)top->u.integer;
++                        top->u.dbl = (flags & flag_num_negative)
++                                ? -(double)top->u.integer : (double)top->u.integer;
+
+                         num_digits = 0;
+                         continue;
+@@ -802,7 +821,8 @@
+
+                             if (top->type == json_integer) {
+                                 top->type  = json_double;
+-                                top->u.dbl = (double)top->u.integer;
++                                top->u.dbl = (flags & flag_num_negative)
++                                        ? -(double)top->u.integer : (double)top->u.integer;
+                             }
+
+                             num_digits = 0;
+@@ -823,12 +843,8 @@
+                                          flag_num_e_negative) ? -num_e : num_e));
+                     }
+
+-                    if (flags & flag_num_negative) {
+-                        if (top->type == json_integer) {
+-                            top->u.integer = -top->u.integer;
+-                        } else {
+-                            top->u.dbl = -top->u.dbl;
+-                        }
++                    if ((flags & flag_num_negative) && top->type == json_double) {
++                        top->u.dbl = -top->u.dbl;
+                     }
+
+                     flags |= flag_next | flag_reproc;

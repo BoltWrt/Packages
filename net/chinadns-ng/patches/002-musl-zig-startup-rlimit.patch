@@ -1,0 +1,38 @@
+--- /dev/null
++++ b/src/musl_compat.c
+@@ -0,0 +1,35 @@
++/* SPDX-License-Identifier: AGPL-3.0-only */
++#ifdef MUSL
++#include <stddef.h>
++#include <stdint.h>
++#include <sys/resource.h>
++
++/* Zig 0.10.1 startup calls this LFS64 symbol directly, without the target
++ * header's setrlimit64 macro. Marshal its explicit 64-bit ABI through the
++ * actual musl interface; never alias or reinterpret a target struct rlimit.
++ */
++struct chinadns_zig_rlimit64 {
++    uint64_t cur;
++    uint64_t max;
++};
++
++_Static_assert(sizeof(struct chinadns_zig_rlimit64) == 16, "Zig rlimit64 size");
++_Static_assert(offsetof(struct chinadns_zig_rlimit64, max) == 8, "Zig rlimit64 fields");
++_Static_assert(sizeof(rlim_t) == 8 && (rlim_t)-1 > 0, "musl rlim_t must be unsigned 64-bit");
++
++/* A separate C identifier avoids the optional setrlimit64 preprocessor macro. */
++int chinadns_zig_setrlimit64(int resource,
++    const struct chinadns_zig_rlimit64 *limits) __asm__("setrlimit64");
++
++int chinadns_zig_setrlimit64(int resource,
++    const struct chinadns_zig_rlimit64 *limits)
++{
++    if (!limits)
++        return setrlimit(resource, NULL);
++    const struct rlimit native = {
++        .rlim_cur = limits->cur,
++        .rlim_max = limits->max,
++    };
++    return setrlimit(resource, &native);
++}
++#endif

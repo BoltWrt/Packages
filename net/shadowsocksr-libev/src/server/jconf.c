@@ -24,6 +24,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
+#include <limits.h>
 
 #include "utils.h"
 #include "jconf.h"
@@ -44,9 +45,10 @@ to_string(const json_value *value)
     if (value->type == json_string) {
         return ss_strndup(value->u.string.ptr, value->u.string.length);
     } else if (value->type == json_integer) {
+        if (value->u.integer < INT_MIN || value->u.integer > INT_MAX) {
+            FATAL("Invalid config integer range.");
+        }
         return strdup(ss_itoa(value->u.integer));
-    } else if (value->type == json_null) {
-        return "null";
     } else {
         LOGE("%d", value->type);
         FATAL("Invalid config format.");
@@ -119,9 +121,13 @@ read_jconf(const char *file)
         FATAL("Invalid config path.");
     }
 
-    fseek(f, 0, SEEK_END);
+    if (fseek(f, 0, SEEK_END) != 0) {
+        FATAL("Failed to seek the config file.");
+    }
     long pos = ftell(f);
-    fseek(f, 0, SEEK_SET);
+    if (pos < 0 || fseek(f, 0, SEEK_SET) != 0) {
+        FATAL("Failed to read the config size.");
+    }
 
     if (pos >= MAX_CONF_SIZE) {
         FATAL("Too large config file.");
@@ -224,6 +230,8 @@ read_jconf(const char *file)
             } else if (strcmp(name, "tunnel_address") == 0) {
                 conf.tunnel_address = to_string(value);
             } else if (strcmp(name, "mode") == 0) {
+                check_json_value_type(value, json_string,
+                                      "invalid config file: option mode must be a string");
                 char *mode_str = to_string(value);
 
                 if (strcmp(mode_str, "tcp_only") == 0)

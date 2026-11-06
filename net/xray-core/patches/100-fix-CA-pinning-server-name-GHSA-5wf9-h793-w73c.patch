@@ -1,0 +1,51 @@
+From 64fada32b5b9e6ae064a038fa0e4e2b766499bd5 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=E9=A3=8E=E6=89=87=E6=BB=91=E7=BF=94=E7=BF=BC?=
+ <Fangliding.fshxy@outlook.com>
+Date: Sat, 11 Jul 2026 05:03:35 +0800
+Subject: [PATCH] TLS client: Pinning CA must have `serverName` (or
+ higher-priority `verifyPeerCertByName` or outbound's `address`) for
+ `pinnedPeerCertSha256` (#6472)
+
+Fixes https://github.com/XTLS/Xray-core/security/advisories/GHSA-5wf9-h793-w73c
+
+Backport to v26.3.27: hysteria client construction context differs; preserve
+the upstream destination propagation and fail-closed CA pin validation.
+
+---
+--- a/transport/internet/grpc/dial.go
++++ b/transport/internet/grpc/dial.go
+@@ -136,10 +136,7 @@
+ 				}
+ 
+ 				if tlsConfig != nil {
+-					config := tlsConfig.GetTLSConfig()
+-					if config.ServerName == "" && address.Family().IsDomain() {
+-						config.ServerName = address.Domain()
+-					}
++					config := tlsConfig.GetTLSConfig(tls.WithDestination(dest))
+ 					if fingerprint := tls.GetFingerprint(tlsConfig.Fingerprint); fingerprint != nil {
+ 						return tls.UClient(c, config, fingerprint), nil
+ 					} else { // Fallback to normal gRPC TLS
+--- a/transport/internet/hysteria/dialer.go
++++ b/transport/internet/hysteria/dialer.go
+@@ -454,7 +454,7 @@
+ 			ctx:            ctx,
+ 			dest:           dest,
+ 			config:         config,
+-			tlsConfig:      tlsConfig.GetTLSConfig(),
++			tlsConfig:      tlsConfig.GetTLSConfig(tls.WithDestination(dest)),
+ 			socketConfig:   streamSettings.SocketSettings,
+ 			udpmaskManager: streamSettings.UdpmaskManager,
+ 			quicParams:     streamSettings.QuicParams,
+--- a/transport/internet/tls/config.go
++++ b/transport/internet/tls/config.go
+@@ -331,6 +331,9 @@
+ 	}
+ 
+ 	if verifyResult == foundCA { // if found CA, we need to verify here
++		if len(r.Config.ServerName) == 0 {
++			return errors.New("Pinning CA needs a valid ServerName")
++		}
+ 		opts := x509.VerifyOptions{
+ 			Roots:         CAs,
+ 			CurrentTime:   time.Now(),
