@@ -1,6 +1,7 @@
 local api = require "luci.passwall2.api"
 local appname = "passwall2"
-local uci = api.uci
+-- These runtime commits must not emit config.change and reload Passwall2.
+local uci = require("uci").cursor()
 local sys = api.sys
 local jsonc = api.jsonc
 local fs = api.fs
@@ -22,62 +23,87 @@ local function tinsert(table_name, val)
 	return false
 end
 
-local function backup_servers()
-	local DNSMASQ_DNS = uci:get("dhcp", "@dnsmasq[0]", "server")
-	if DNSMASQ_DNS and #DNSMASQ_DNS > 0 then
-		uci:set(appname, "@global[0]", "dnsmasq_servers", DNSMASQ_DNS)
-		api.uci_save(uci, appname, true)
+local function get_servers(config, section, option)
+	local servers = uci:get(config, section, option)
+	if type(servers) == "string" then
+		return servers ~= "" and {servers} or {}
 	end
+	return servers or {}
+end
+
+local function merge_servers(current, backup)
+	local servers = {}
+	for _, server in ipairs(current) do
+		tinsert(servers, server)
+	end
+	for _, server in ipairs(backup) do
+		tinsert(servers, server)
+	end
+	return servers
+end
+
+local function prepare_servers()
+	local servers = get_servers("dhcp", "@dnsmasq[0]", "server")
+	local domain_servers = {}
+	for _, server in ipairs(servers) do
+		if server:find("/", 1, true) then
+			tinsert(domain_servers, server)
+		end
+	end
+	if #domain_servers == #servers then
+		return true
+	end
+
+	local backup = merge_servers(servers, get_servers(appname, "@global[0]", "dnsmasq_servers"))
+	if not (uci:set(appname, "@global[0]", "dnsmasq_servers", backup) and uci:commit(appname)) then
+		return false
+	end
+	if #domain_servers == 0 then
+		return uci:delete("dhcp", "@dnsmasq[0]", "server") and uci:commit("dhcp")
+	end
+	return uci:set("dhcp", "@dnsmasq[0]", "server", domain_servers) and uci:commit("dhcp")
 end
 
 local function restore_servers()
-	local dns_table = {}
-	local DNSMASQ_DNS = uci:get("dhcp", "@dnsmasq[0]", "server")
-	if DNSMASQ_DNS and #DNSMASQ_DNS > 0 then
-		for k, v in ipairs(DNSMASQ_DNS) do
-			tinsert(dns_table, v)
-		end
+	local backup = get_servers(appname, "@global[0]", "dnsmasq_servers")
+	if #backup == 0 then
+		return true
 	end
-	local OLD_SERVER = uci:get(appname, "@global[0]", "dnsmasq_servers")
-	if OLD_SERVER and #OLD_SERVER > 0 then
-		for k, v in ipairs(OLD_SERVER) do
-			tinsert(dns_table, v)
-		end
-		uci:delete(appname, "@global[0]", "dnsmasq_servers")
-		api.uci_save(uci, appname, true)
+	-- Include DHCP changes made while dnsmasq was restarting.
+	uci:unload("dhcp")
+	local servers = merge_servers(get_servers("dhcp", "@dnsmasq[0]", "server"), backup)
+	if not (uci:set("dhcp", "@dnsmasq[0]", "server", servers) and uci:commit("dhcp")) then
+		return false
 	end
-	if dns_table and #dns_table > 0 then
-		uci:set_list("dhcp", "@dnsmasq[0]", "server", dns_table)
-		api.uci_save(uci, "dhcp", true)
-	end
+	return uci:delete(appname, "@global[0]", "dnsmasq_servers") and uci:commit(appname)
 end
 
 function stretch()
-	local dnsmasq_server = uci:get("dhcp", "@dnsmasq[0]", "server")
-	local dnsmasq_noresolv = uci:get("dhcp", "@dnsmasq[0]", "noresolv")
-	local _flag
-	if dnsmasq_server and #dnsmasq_server > 0 then
-		for k, v in ipairs(dnsmasq_server) do
-			if not v:find("/") then
-				_flag = true
-			end
+	if uci:get("dhcp", "@dnsmasq[0]", "noresolv") ~= "1" then
+		return
+	end
+	local servers = merge_servers(get_servers("dhcp", "@dnsmasq[0]", "server"),
+		get_servers(appname, "@global[0]", "dnsmasq_servers"))
+	for _, server in ipairs(servers) do
+		if not server:find("/", 1, true) then
+			return
 		end
 	end
-	if not _flag and dnsmasq_noresolv == "1" then
-		uci:delete("dhcp", "@dnsmasq[0]", "noresolv")
-		local RESOLVFILE = "/tmp/resolv.conf.d/resolv.conf.auto"
-		local file = io.open(RESOLVFILE, "r")
-		if not file then
-			RESOLVFILE = "/tmp/resolv.conf.auto"
-		else
-			local size = file:seek("end")
-			file:close()
-			if size == 0 then
-				RESOLVFILE = "/tmp/resolv.conf.auto"
-			end
+
+	local resolvfile = "/tmp/resolv.conf.d/resolv.conf.auto"
+	local file = io.open(resolvfile, "r")
+	if file then
+		local size = file:seek("end")
+		file:close()
+		if size == 0 then
+			resolvfile = "/tmp/resolv.conf.auto"
 		end
-		uci:set("dhcp", "@dnsmasq[0]", "resolvfile", RESOLVFILE)
-		api.uci_save(uci, "dhcp", true)
+	else
+		resolvfile = "/tmp/resolv.conf.auto"
+	end
+	if not (uci:delete("dhcp", "@dnsmasq[0]", "noresolv")
+		and uci:set("dhcp", "@dnsmasq[0]", "resolvfile", resolvfile) and uci:commit("dhcp")) then
+		api.log(0, "Failed to update dnsmasq resolver settings.")
 	end
 end
 
@@ -90,28 +116,19 @@ function restart(var)
 end
 
 function logic_restart(var)
-	local LOG = var["LOG"]
-	local DEFAULT_DNS = api.get_cache_var("DEFAULT_DNS")
-	if DEFAULT_DNS then
-		backup_servers()
-		--sys.call("sed -i '/list server/d' /etc/config/dhcp >/dev/null 2>&1")
-		local dns_table = {}
-		local dnsmasq_server = uci:get("dhcp", "@dnsmasq[0]", "server")
-		if dnsmasq_server and #dnsmasq_server > 0 then
-			for k, v in ipairs(dnsmasq_server) do
-				if v:find("/") then
-					tinsert(dns_table, v)
-				end
-			end
-			uci:set_list("dhcp", "@dnsmasq[0]", "server", dns_table)
-			api.uci_save(uci, "dhcp", true)
-		end
-		sys.call("/etc/init.d/dnsmasq restart >/dev/null 2>&1")
-		restore_servers()
-	else
-		sys.call("/etc/init.d/dnsmasq restart >/dev/null 2>&1")
+	local default_dns = api.get_cache_var("DEFAULT_DNS")
+	if default_dns and not prepare_servers() then
+		api.log(0, "Failed to prepare dnsmasq upstreams.")
+		return
 	end
-	if LOG == "1" then
+
+	local status = sys.call("/etc/init.d/dnsmasq restart >/dev/null 2>&1")
+	if default_dns and not restore_servers() then
+		api.log(0, "Failed to restore dnsmasq upstreams.")
+	end
+	if status ~= 0 then
+		api.log(0, "Failed to restart dnsmasq service.")
+	elseif var["LOG"] == "1" then
 		api.log(0, api.i18n.translate("Restart dnsmasq service."))
 	end
 end
