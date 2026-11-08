@@ -4,9 +4,8 @@ The 5.49.0-r1 artifacts contain gRPC 1.80.0. In plugin `mode=grpc`
 server mode, its native HTTP/2 transport exposes the Rapid Reset mitigation
 bypass and fragmented DATA receive-buffer exhaustion described below.
 Release 2 pins gRPC 1.83.2 and its minimum module graph while retaining
-plugin/core 5.49.0. The Go standard-library remediation is a separate
-build-toolchain change: release 2 must be rebuilt with Go 1.26.10 or newer
-in the 1.26 series before the TLS finding can be closed.
+plugin/core 5.49.0. The firmware build supplies the Go standard-library fix
+through Go 1.26.10. The production checks below identify the rebuilt artifacts.
 
 ## Inputs and evidence
 
@@ -35,11 +34,11 @@ in the 1.26 series before the TLS finding can be closed.
   are supporting evidence; a symbol match alone does not establish runtime
   reachability or successful exploitation.
 
-## Final-artifact module inventory
+## Original module inventory and release 2 pins
 
-Both platforms link the same 15 non-main modules. The complete MVS graph
-also includes development, test and other-platform modules; those are not
-all linked into the delivered plugin.
+The two r1 artifacts link the same 15 non-main modules. The release 2 column
+records the reviewed versions. The complete MVS graph also includes development,
+test and other-platform modules.
 
 | Module | Original version | Release 2 version |
 | --- | --- | --- |
@@ -87,7 +86,7 @@ affected operations; the gRPC-required module graph also updates IDNA/text
 past those baseline fixes. Arbitrary full v2ray-core JSON configurations,
 ECH options, HTTP/3 transports and xDS configuration are not plugin inputs.
 
-## Validation and remaining work
+## Candidate checks (2026-10-30)
 
 - Patch applies to the hash-locked source with `--fuzz=0`; patched
   `go.mod`/`go.sum` equal the reviewed candidate files byte for byte.
@@ -105,7 +104,12 @@ ECH options, HTTP/3 transports and xDS configuration are not plugin inputs.
 - Candidate source scan removes all gRPC findings. It retains the four
   standalone x/net HTTP/2 exclusions above and the expected Go 1.26.9 TLS
   finding pending the separate toolchain rebuild.
-- Required downstream: production builds for both targets, r2 APK/root/image
-  binding, actual Go 1.26.10 buildinfo, final dependency and advisory review.
-  All selected Go programs require rebuilding to replace the old standard
-  library. Existing r1 artifacts remain historical and unmodified.
+
+## Production build checks (2026-11-06)
+
+The two target builds from firmware `7d1c6614` and Packages `fbb14623` produced
+5.49.0-r2 with Go 1.26.10, gRPC 1.83.2 and CGO enabled. Buildinfo and byte
+identity were checked across the authenticated APK, rootfs and the RAX FIT or
+four x86 images. These results apply to the rebuilt artifacts. The listener
+checks above apply to the earlier isolated candidate.
+[Artifact records](https://github.com/BoltWrt/BoltWrt/blob/v4.0.0/docs/4.0.0-hysteria-validation.md)

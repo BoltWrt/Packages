@@ -1,8 +1,8 @@
 # 独立 Hysteria2 核心
 
-本包为独立 `/usr/bin/hysteria`，不是 Sing-Box 的 Hysteria2 实现。PassWall2 的
-`INCLUDE_Hysteria` 选择此包，独立节点类型为 `Hysteria2`，启动契约是
-`hysteria -c CONFIG client`；Sing-Box 后端可同时保留。
+PassWall 2 的 `INCLUDE_Hysteria` 选择此包。独立节点类型为 `Hysteria2`，
+使用 `/usr/bin/hysteria`，启动命令为 `hysteria -c CONFIG client`。
+固件同时保留 Sing-box 的 Hysteria2 实现。 [包定义](Makefile)
 
 ## 固定来源与兼容
 
@@ -17,8 +17,7 @@
   上游 `-c`、`client` 与 `Version:` 输出仍兼容 PassWall2 的调用和版本读取。
 - PassWall2 r4 修复该后端的两个实际字段契约：输出 `fastOpen`，并仅将 UCI
   字符串 `"1"` 解释为关闭 PMTU 探测。缺省／空值／`"0"` 均为 false。
-  四组真实 Lua 5.1 生成器回归已通过；UCI 与 JSON 序列化器是合成替身，
-  不等同真实核心解析、目标 APK 或浏览器验收。
+  四组 Lua 5.1 生成器回归使用合成 UCI 与 JSON 序列化器，实际核心与浏览器结果见下文。
 
 ## 安全更新边界
 
@@ -39,8 +38,14 @@
 compress 1.17.9 的 [GO-2026-5841](https://pkg.go.dev/vuln/GO-2026-5841) 针对 `s2.NewDict`；
 x/net 0.57.0 的 [GO-2026-6860](https://pkg.go.dev/vuln/GO-2026-6860)／
 [GO-2026-6866](https://pkg.go.dev/vuln/GO-2026-6866) 针对 HTML Parse／Render。
-应用本身未直接导入这些包；这不能替代完整实际依赖可达性核对，相关边界应随正常构建复核。
+这三项公告涉及 `github.com/klauspost/compress/s2` 和 `golang.org/x/net/html` 中的实现。
 
-新增选择后的 x86_64／Cortex-A53 正常 Go1.26.10 构建、独立 APK／manifest／镜像、
-真实核心配置解析和 LuCI 节点入口仍需在新的产品输入上验收。
-旧 6cdb9f66／43dee650 的 RAX 证据未安装本独立核心，不能用于证明新选择已落包。
+## 2026-11-06 产品验收
+
+固件 `7d1c6614` 与 Packages `fbb14623` 的两个目标均完成 Go 1.26.10 构建及 APK／镜像核对。
+实际 arm64 与 amd64 生产编译依赖图分别包含 543 和 546 个包，两者均未纳入上述 `s2` 与
+`html` 实现。该结论限于这三项公告及所用构建配置。
+
+RAX 的 ARM 用户态确认独立核心版本 `v2.13.0`，x86 的实际 LuCI／ubus 用例覆盖独立
+Hysteria2 和 Sing-box 的节点持久化、配置生成及核心加载。结果限于本地软件测试。
+[原始依赖、产物及运行记录](https://github.com/BoltWrt/BoltWrt/blob/v4.0.0/docs/4.0.0-hysteria-validation.md)
