@@ -23,6 +23,16 @@ config user 'native'
  option hysteria2_auth_password 'preserve-native'
 ]])
 file:close()
+local client_file = assert(io.open(directory .. "/passwall2", "w"))
+client_file:write([[config nodes 'client'
+ option type 'Xray'
+ option transport 'tcp'
+ option uuid 'preserve-client-uuid'
+config nodes 'sb'
+ option type 'sing-box'
+ option transport 'tcp'
+]])
+client_file:close()
 local function cursor() return require("uci").cursor(directory, directory .. "/state") end
 local c = cursor()
 assert(migration.apply(c, migration.read(c)) == 2)
@@ -40,4 +50,8 @@ assert(c:get(config, "bw401_legacy_1", "password") == "must-not-overwrite")
 assert(c:get(config, "native", "hysteria2_auth_password") == "preserve-native")
 assert(c:get(config, "native", "enable") == "0")
 assert(#migration.read(c).servers == 0)
+assert(#migration.read(c).clients == 0)
+assert(c:get("passwall2", "client", "transport") == "raw")
+assert(c:get("passwall2", "client", "uuid") == "preserve-client-uuid")
+assert(c:get("passwall2", "sb", "transport") == "tcp")
 print("PASS native libuci migration: fresh cursor, lists, schema, credentials, enabled intent, collision, idempotence")

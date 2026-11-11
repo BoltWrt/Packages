@@ -38,3 +38,22 @@ end
 assert(#migration.plan(after).servers == 0, "migration is not idempotent")
 assert(#migration.plan({}).servers == 0)
 print("PASS legacy server migration: credentials, anonymous auth, collision, idempotence, unknown/new schemas")
+
+local protocols = migration.plan({
+    { [".name"]="sb-ss", [".type"]="user", type="sing-box", protocol="shadowsocks", method="aes-128-gcm", password="ss-password" },
+    { [".name"]="naive", [".type"]="user", type="sing-box", protocol="naive", username="naive-user", password="naive-password" },
+    { [".name"]="anytls", [".type"]="user", type="sing-box", protocol="anytls", password="anytls-password" },
+    { [".name"]="hy", [".type"]="user", type="sing-box", protocol="hysteria", hysteria_auth_type="base64", hysteria_auth_password="YWJjAA==" },
+    { [".name"]="raw", [".type"]="user", type="Xray", protocol="vless", transport="tcp", uuid={"uuid-c"} },
+}, {
+    { [".name"]="client", [".type"]="nodes", type="Xray", protocol="vless", transport="tcp" },
+    { [".name"]="sb-client", [".type"]="nodes", type="sing-box", protocol="vless", transport="tcp" },
+})
+assert(protocols.servers[1].options.ss_method == "aes-128-gcm")
+assert(protocols.servers[1].options.ss_password == "ss-password")
+assert(protocols.accounts[1].options.username == "naive-user" and protocols.accounts[1].options.password == "naive-password")
+assert(protocols.accounts[2].options.password == "anytls-password")
+assert(protocols.accounts[3].options.password == "YWJjAA==", "binary auth was decoded or changed during migration")
+assert(protocols.servers[5].options.transport == "raw")
+assert(#protocols.clients == 1 and protocols.clients[1].id == "client")
+print("PASS Sing-Box SS/Naive/AnyTLS/Hysteria credentials and Xray RAW transport migration")

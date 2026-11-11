@@ -6,7 +6,7 @@
     "upstream_tag": "26.11.11-1",
     "commit": "24baf7cffdb34272adb8f8b31d6ad901596c3f61",
     "source_sha256": "d0341d1d0b4b8bf08948ebf05b06f734757c1c60f6759f21a0b32a77f6ea916c",
-    "downstream": ["native Hysteria2, SS-libev, NaiveProxy and TUIC backends", "RPC session node persistence", "shunt checkbox state", "dnsmasq reload-loop prevention", "4.0.0 server schema migration"]
+    "downstream": ["native Hysteria2, SS-libev, NaiveProxy and TUIC backends", "RPC session node persistence", "shunt checkbox state", "dnsmasq reload-loop prevention", "4.0.0 server schema and account migration for all former protocols", "Xray TCP to RAW transport migration", "binary Hysteria authentication preservation"]
   },
   "xray": {
     "version": "26.11.9",

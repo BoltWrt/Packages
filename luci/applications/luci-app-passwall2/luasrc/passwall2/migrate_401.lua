@@ -9,7 +9,7 @@ local function values(value)
     return value and value ~= "" and {value} or {}
 end
 
-function M.plan(sections)
+function M.plan(sections, nodes)
     local occupied, servers, accounts = {}, {}, {}
     for _, section in ipairs(sections) do occupied[section[".name"]] = true end
     for _, section in ipairs(sections) do
@@ -47,21 +47,32 @@ function M.plan(sections)
                 elseif protocol == "hysteria2" then
                     if section.hysteria2_auth_password then account(nil, section.hysteria2_auth_password) end
                 elseif protocol == "hysteria" then
-                    if section.hysteria_auth_password then account(nil, section.hysteria_auth_password) end
+                    account(nil, section.hysteria_auth_password)
+                elseif protocol == "naive" or protocol == "anytls" then
+                    account(nil, section.password, section.username)
                 elseif protocol == "socks" or protocol == "http" or protocol == "mixed" then
                     if section.auth == "1" then account(nil, section.password, section.username) end
-                elseif protocol == "shadowsocks" and section.type == "Xray" then
+                elseif protocol == "shadowsocks" then
                     options.ss_method = section.method
                     options.ss_password = section.password
                 elseif protocol == "dokodemo-door" and section.type == "Xray" then
                     options.protocol = "tunnel"
+                end
+                if section.type == "Xray" and section.transport == "tcp" then
+                    options.transport = "raw"
                 end
             end
             if #update.users > 0 then options.users = update.users end
             servers[#servers + 1] = update
         end
     end
-    return {servers=servers, accounts=accounts}
+    local clients = {}
+    for _, node in ipairs(nodes or {}) do
+        if node[".type"] == "nodes" and node.type == "Xray" and node.transport == "tcp" then
+            clients[#clients + 1] = { id=node[".name"] }
+        end
+    end
+    return {servers=servers, accounts=accounts, clients=clients}
 end
 
 function M.read(cursor)
@@ -69,7 +80,9 @@ function M.read(cursor)
     cursor:foreach("passwall2_server", nil, function(section)
         sections[#sections + 1] = section
     end)
-    return M.plan(sections)
+    local nodes = {}
+    cursor:foreach("passwall2", "nodes", function(node) nodes[#nodes + 1] = node end)
+    return M.plan(sections, nodes)
 end
 
 function M.apply(cursor, plan)
@@ -89,9 +102,18 @@ function M.apply(cursor, plan)
             assert(cursor:set(config, server.id, key, value), "cannot migrate server option")
         end
     end
-    assert(cursor:save(config), "cannot save migrated server config")
-    assert(cursor:commit(config), "cannot commit migrated server config")
-    return #plan.servers
+    if #plan.servers > 0 then
+        assert(cursor:save(config), "cannot save migrated server config")
+        assert(cursor:commit(config), "cannot commit migrated server config")
+    end
+    for _, client in ipairs(plan.clients) do
+        assert(cursor:set("passwall2", client.id, "transport", "raw"), "cannot migrate Xray transport")
+    end
+    if #plan.clients > 0 then
+        assert(cursor:save("passwall2"), "cannot save migrated client config")
+        assert(cursor:commit("passwall2"), "cannot commit migrated client config")
+    end
+    return #plan.servers, #plan.clients
 end
 
 return M

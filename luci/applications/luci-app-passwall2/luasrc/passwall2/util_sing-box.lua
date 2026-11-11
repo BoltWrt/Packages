@@ -901,7 +901,10 @@ function gen_config_server(node)
 				end
 				if node.protocol == "hysteria" then
 					u.name = user.username
-					u.auth_str = user.password
+					-- 4.0.0 could store binary Hysteria authentication as Base64.
+					-- Keep that encoding instead of using the encoded text as a password.
+					u.auth = node.hysteria_auth_type == "base64" and user.password or nil
+					u.auth_str = node.hysteria_auth_type ~= "base64" and user.password or nil
 				end
 				if node.protocol == "tuic" then
 					u.name = user.username
