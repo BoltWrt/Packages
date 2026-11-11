@@ -771,7 +771,7 @@ function gen_config_server(node)
 					} or nil,
 					rawSettings = (node.transport == "raw" or node.transport == "tcp") and {
 						header = {
-							type = node.tcp_guise,
+							type = (node.tcp_guise and node.tcp_guise ~= "") and node.tcp_guise or "none",
 							request = (node.tcp_guise == "http") and {
 								path = node.tcp_guise_http_path and (function()
 										local t, r = node.tcp_guise_http_path, {}

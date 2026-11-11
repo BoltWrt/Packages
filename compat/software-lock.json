@@ -3,10 +3,11 @@
   "product_candidate": "4.0.1",
   "passwall2": {
     "version": "26.11.11",
+    "release": 2,
     "upstream_tag": "26.11.11-1",
     "commit": "24baf7cffdb34272adb8f8b31d6ad901596c3f61",
     "source_sha256": "d0341d1d0b4b8bf08948ebf05b06f734757c1c60f6759f21a0b32a77f6ea916c",
-    "downstream": ["native Hysteria2, SS-libev, NaiveProxy and TUIC backends", "RPC session node persistence", "shunt checkbox state", "dnsmasq reload-loop prevention", "4.0.0 server schema and account migration for all former protocols", "client cipher, WebSocket early data, Xray transport and TLS certificate fingerprint migration", "binary Hysteria authentication preservation", "reject unsupported Sing-Box TLS pinning instead of disabling certificate validation", "binary-safe SHA256 fingerprint conversion"]
+    "downstream": ["native Hysteria2, SS-libev, NaiveProxy and TUIC backends", "RPC session node persistence", "shunt checkbox state", "dnsmasq reload-loop prevention", "4.0.0 server schema and account migration for all former protocols", "client cipher, WebSocket early data, Xray transport and TLS certificate fingerprint migration", "binary Hysteria authentication preservation", "reject unsupported Sing-Box TLS pinning instead of disabling certificate validation", "binary-safe SHA256 fingerprint conversion", "default RAW TCP header for migrated Xray servers with an omitted disguise field"]
   },
   "xray": {
     "version": "26.11.9",
