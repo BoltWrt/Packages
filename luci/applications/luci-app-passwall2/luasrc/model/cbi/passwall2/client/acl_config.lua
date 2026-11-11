@@ -145,8 +145,24 @@ o = s:taboption("Main", ListValue, "mode", translate("Mode"))
 o:value("0", translate("No Proxy"))
 o:value("1", translate("Proxy"))
 o:value("2", translate("Proxy") .. " " .. translate("Use global config") .. "(" .. api.get_node_name(NODE) .. ")")
+function o.write(self, section, value)
+	self.map.uci:delete(appname, section, "boltwrt_401_legacy_acl")
+	self.map.uci:delete(appname, section, "boltwrt_401_inherit_ports")
+	return ListValue.write(self, section, value)
+end
+
+local function legacy_port_cfgvalue(self, section)
+	local inherited = self.map.uci:get(appname, section, "boltwrt_401_inherit_ports")
+	if self.map.uci:get(appname, section, "boltwrt_401_legacy_acl") == "1" and type(inherited) == "table" and not (self.tag_error and self.tag_error[section]) then
+		for _, key in ipairs(inherited) do
+			if key == self.option then return self.map:get("@global_forwarding[0]", key) or "" end
+		end
+	end
+	return Value.cfgvalue(self, section)
+end
 
 o = s:taboption("Proxy", Value, "tcp_no_redir_ports", translate("TCP No Redir Ports"))
+o.cfgvalue = legacy_port_cfgvalue
 o:value("", translate("No patterns are used"))
 o:value("1:65535", translate("All"))
 o:depends("mode", "1")
@@ -154,6 +170,7 @@ o:depends("mode", "2")
 o.validate = port_validate
 
 o = s:taboption("Proxy", Value, "udp_no_redir_ports", translate("UDP No Redir Ports"))
+o.cfgvalue = legacy_port_cfgvalue
 o:value("", translate("No patterns are used"))
 o:value("1:65535", translate("All"))
 o:depends("mode", "1")
@@ -167,6 +184,7 @@ o = s:taboption("Main", HideValue, "_show_udp_redir")
 o:depends({ udp_no_redir_ports = "1:65535",  ['!reverse'] = true })
 
 o = s:taboption("Proxy", Value, "tcp_redir_ports", translate("TCP Redir Ports"))
+o.cfgvalue = legacy_port_cfgvalue
 o:value("1:65535", translate("All"))
 o:value("22,25,53,80,143,443,465,587,853,873,993,995,5222,8080,8443,9418", translate("Common Use"))
 o:value("80,443", "80,443")
@@ -176,6 +194,7 @@ o:depends({ _node = "1",  _show_tcp_redir = "1" })
 o:depends({ mode = "2",  _show_tcp_redir = "1" })
 
 o = s:taboption("Proxy", Value, "udp_redir_ports", translate("UDP Redir Ports"))
+o.cfgvalue = legacy_port_cfgvalue
 o:value("1:65535", translate("All"))
 o.default = o.keylist[1]
 o.validate = port_validate

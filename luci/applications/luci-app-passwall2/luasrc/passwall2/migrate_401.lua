@@ -98,6 +98,71 @@ function M.plan(sections, nodes)
             if next(options) then clients[#clients + 1] = { id=node[".name"], options=options } end
         end
     end
+    -- 4.0.0 used literal disable/default sentinels and implicitly inherited
+    -- global ACL settings. The new ACL builder expects real port expressions,
+    -- list-valued sources and an explicit mode. Resolve the old semantics
+    -- before it can generate nftables rules.
+    local forwarding = {}
+    for _, section in ipairs(nodes or {}) do
+        if section[".type"] == "global_forwarding" and not forwarding[".name"] then forwarding = section end
+    end
+    local function inherited(rule, key)
+        local value = rule[key]
+        if not value or value == "" or value == "default" then value = forwarding[key] end
+        if not value or value == "" or value == "default" then
+            value = key:find("no_redir",1,true) and "disable" or "1:65535"
+        end
+        return value ~= "disable" and value or nil
+    end
+    local function all_ports(value)
+        local ports = "," .. (value or ""):gsub("%s", ""):gsub(":", "-") .. ","
+        return ports:find(",1-65535,",1,true) or ports:find(",0-65535,",1,true)
+    end
+    for _, section in ipairs(nodes or {}) do
+        local options, remove = {}, {}
+        local function change(key, value)
+            if section[key] ~= value then
+                if value == nil then remove[#remove+1] = key else options[key] = value end
+            end
+        end
+        if section[".type"] == "global_forwarding" then
+            for _, key in ipairs({"tcp_no_redir_ports", "udp_no_redir_ports"}) do
+                if section[key] == "disable" then change(key, nil) end
+            end
+        elseif section[".type"] == "acl_rule" then
+            if type(section.sources) == "string" and section.sources ~= "" then
+                local sources = {}; for source in section.sources:gmatch("%S+") do sources[#sources+1] = source end
+                options.sources = sources
+            end
+            if not section.mode or section.mode == "" then
+                local inherit_ports = {}
+                for _, key in ipairs({"tcp_no_redir_ports", "udp_no_redir_ports", "tcp_redir_ports", "udp_redir_ports"}) do
+                    change(key, inherited(section, key))
+                    if not section[key] or section[key] == "" or section[key] == "default" then inherit_ports[#inherit_ports+1] = key end
+                end
+                options.boltwrt_401_legacy_acl = "1"
+                if #inherit_ports > 0 then options.boltwrt_401_inherit_ports = inherit_ports end
+                local node = section.node
+                if all_ports(section.tcp_no_redir_ports) and all_ports(section.udp_no_redir_ports) then
+                    options.mode = "0"
+                elseif not node or node == "" or node == "default" then
+                    options.mode = "2"
+                    change("node", nil)
+                else
+                    options.mode = "1"
+                    local defaults = {direct_dns_query_strategy="UseIP",remote_dns_protocol="tcp",
+                        remote_dns="1.1.1.1",remote_dns_doh="https://1.1.1.1/dns-query",
+                        remote_dns_detour="remote",remote_fakedns="0",remote_dns_query_strategy="UseIPv4"}
+                    for key, value in pairs(defaults) do
+                        if not section[key] or section[key] == "" then options[key] = value end
+                    end
+                end
+            end
+        end
+        if next(options) or #remove > 0 then
+            clients[#clients+1] = {id=section[".name"], options=options, remove=remove}
+        end
+    end
     return {servers=servers, accounts=accounts, clients=clients}
 end
 
@@ -107,7 +172,7 @@ function M.read(cursor)
         sections[#sections + 1] = section
     end)
     local nodes = {}
-    cursor:foreach("passwall2", "nodes", function(node) nodes[#nodes + 1] = node end)
+    cursor:foreach("passwall2", nil, function(node) nodes[#nodes + 1] = node end)
     return M.plan(sections, nodes)
 end
 
@@ -135,6 +200,9 @@ function M.apply(cursor, plan)
     for _, client in ipairs(plan.clients) do
         for key,value in pairs(client.options) do
             assert(cursor:set("passwall2", client.id, key, value), "cannot migrate client setting")
+        end
+        for _, key in ipairs(client.remove or {}) do
+            assert(cursor:delete("passwall2", client.id, key), "cannot remove obsolete client setting")
         end
     end
     if #plan.clients > 0 then

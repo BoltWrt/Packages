@@ -67,6 +67,8 @@ function init_acl()
 	if uci_get("@global[0]", "acl_enable") == "1" then
 		uci_foreach("acl_rule", function(o)
 			if o.enabled == "1" then
+				local legacy_acl = o.boltwrt_401_legacy_acl == "1"
+				if legacy_acl and o.mode == "2" and (uci_get("@global[0]", "enabled") ~= "1" or not D.use) then return end
 				acl_num = acl_num + 1
 				local a = {}
 				a.flag = o[".name"]
@@ -80,6 +82,11 @@ function init_acl()
 				a.client_proxy = "1"
 				a.local_proxy = "0"
 				a.node = o.node
+				if legacy_acl then
+					for _, key in ipairs(o.boltwrt_401_inherit_ports or {}) do
+						if key == "tcp_no_redir_ports" or key == "udp_no_redir_ports" or key == "tcp_redir_ports" or key == "udp_redir_ports" then a[key] = D[key] end
+					end
+				end
 				if o.mode == "0" then
 					a.tcp_no_redir_ports = "1:65535"
 					a.udp_no_redir_ports = "1:65535"
@@ -91,6 +98,10 @@ function init_acl()
 						D.client_proxy = "0"
 					end
 					a.use = D.use
+				end
+				if legacy_acl and o.mode == "1" and o.node == D.node and uci_get("@global[0]", "enabled") == "1" then
+					a.use = D.use
+					a.node = nil
 				end
 				if a.tcp_no_redir_ports == "1:65535" and a.udp_no_redir_ports == "1:65535" then
 					a.node = nil
