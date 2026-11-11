@@ -76,7 +76,10 @@ function M.apply(cursor, plan)
     local config = "passwall2_server"
     for _, account in ipairs(plan.accounts) do
         assert(not cursor:get(config, account.id), "migration account collision")
-        assert(cursor:section(config, "user", account.id, account.options), "cannot create migration account")
+        assert(cursor:set(config, account.id, "user"), "cannot create migration account")
+        for key, value in pairs(account.options) do
+            assert(cursor:set(config, account.id, key, value), "cannot migrate account option")
+        end
     end
     for _, server in ipairs(plan.servers) do
         assert(cursor:set(config, server.id, "server"), "cannot migrate server section")
