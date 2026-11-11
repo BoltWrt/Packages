@@ -9,6 +9,24 @@ local function values(value)
     return value and value ~= "" and {value} or {}
 end
 
+local function websocket_path(node)
+    if node.type ~= "sing-box" or node.transport ~= "ws" or not tonumber(node.ws_maxEarlyData) then return nil end
+    local path = node.ws_path or "/"
+    local existing = {}
+    for part in (path:match("%?(.*)$") or ""):gmatch("[^&]+") do
+        local key = part:match("^([^=]+)") or ""
+        key = key:gsub("%%(%x%x)", function(hex) return string.char(tonumber(hex,16)) end)
+        existing[key] = true
+    end
+    local function append(key, value)
+        local separator = path:find("?",1,true) and "&" or "?"
+        path = path .. separator .. key .. "=" .. tostring(value):gsub("([^%w%-%._~])",function(char) return string.format("%%%02X",char:byte()) end)
+    end
+    if not existing.ed then append("ed", node.ws_maxEarlyData) end
+    if not existing.eh and node.ws_earlyDataHeaderName and node.ws_earlyDataHeaderName ~= "" then append("eh",node.ws_earlyDataHeaderName) end
+    return path ~= (node.ws_path or "/") and path or nil
+end
+
 function M.plan(sections, nodes)
     local occupied, servers, accounts = {}, {}, {}
     for _, section in ipairs(sections) do occupied[section[".name"]] = true end
@@ -68,12 +86,15 @@ function M.plan(sections, nodes)
     end
     local clients = {}
     for _, node in ipairs(nodes or {}) do
-        if node[".type"] == "nodes" and node.type == "Xray" then
+        if node[".type"] == "nodes" and (node.type == "Xray" or node.type == "sing-box") then
             local options = {}
-            if node.transport == "tcp" then options.transport = "raw" end
-            if (not node.tls_pinSHA256 or node.tls_pinSHA256 == "") and node.tls_CertSha and node.tls_CertSha ~= "" then
+            if node.type == "Xray" and node.transport == "tcp" then options.transport = "raw" end
+            if node.type == "Xray" and (not node.tls_pinSHA256 or node.tls_pinSHA256 == "") and node.tls_CertSha and node.tls_CertSha ~= "" then
                 options.tls_pinSHA256 = node.tls_CertSha
             end
+            local method = node.protocol == "shadowsocks" and "ss_method" or (node.protocol == "shadowsocksr" and "ssr_method")
+            if method and (not node[method] or node[method] == "") and node.method then options[method] = node.method end
+            options.ws_path = websocket_path(node)
             if next(options) then clients[#clients + 1] = { id=node[".name"], options=options } end
         end
     end
@@ -113,7 +134,7 @@ function M.apply(cursor, plan)
     end
     for _, client in ipairs(plan.clients) do
         for key,value in pairs(client.options) do
-            assert(cursor:set("passwall2", client.id, key, value), "cannot migrate Xray client setting")
+            assert(cursor:set("passwall2", client.id, key, value), "cannot migrate client setting")
         end
     end
     if #plan.clients > 0 then

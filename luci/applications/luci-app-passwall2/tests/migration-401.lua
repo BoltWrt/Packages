@@ -60,3 +60,16 @@ assert(#protocols.clients == 1 and protocols.clients[1].id == "client")
 assert(protocols.clients[1].options.tls_pinSHA256 == "old-cert-pin")
 assert(protocols.clients[1].options.transport == "raw")
 print("PASS Sing-Box SS/Naive/AnyTLS/Hysteria credentials and Xray RAW transport migration")
+
+local client_settings=migration.plan({}, {
+    {[".name"]="ss",[".type"]="nodes",type="sing-box",protocol="shadowsocks",method="aes-128-gcm"},
+    {[".name"]="ssr",[".type"]="nodes",type="sing-box",protocol="shadowsocksr",method="aes-128-cfb"},
+    {[".name"]="ws",[".type"]="nodes",type="sing-box",transport="ws",ws_path="/ws?token=a%2Fb",ws_maxEarlyData="2048",ws_earlyDataHeaderName="Sec-WebSocket-Protocol"},
+    {[".name"]="current",[".type"]="nodes",type="sing-box",protocol="shadowsocks",method="old",ss_method="current",transport="ws",ws_path="/ws?ed=1024&eh=Current",ws_maxEarlyData="2048",ws_earlyDataHeaderName="Old"},
+})
+assert(#client_settings.clients==3)
+assert(client_settings.clients[1].options.ss_method=="aes-128-gcm")
+assert(client_settings.clients[2].options.ssr_method=="aes-128-cfb")
+assert(client_settings.clients[3].options.ws_path=="/ws?token=a%2Fb&ed=2048&eh=Sec-WebSocket-Protocol")
+assert(#migration.plan({}, {{[".name"]="ws",[".type"]="nodes",type="sing-box",transport="ws",ws_path=client_settings.clients[3].options.ws_path,ws_maxEarlyData="2048",ws_earlyDataHeaderName="Sec-WebSocket-Protocol"}}).clients==0)
+print("PASS client cipher fields and WebSocket early data, preserving query bytes and newer settings")

@@ -432,6 +432,7 @@ function gen_outbound(flag, node, tag, proxy_table)
 				address = (node.protocol == "wireguard") and node.wireguard_local_address or node.address,
 				port = tonumber(node.port),
 				id = (node.protocol == "vmess" or node.protocol == "vless") and node.uuid or nil,
+				testpre = node.protocol == "vless" and tonumber(node.preconns) or nil,
 				encryption = (node.protocol == "vless") and ((node.encryption and node.encryption ~= "") and node.encryption or "none") or nil,
 				flow = (node.protocol == "vless" and (node.tls == "1" or (node.encryption and node.encryption ~= "" and node.encryption ~= "none"))
 					and node.flow and node.flow ~= "") and node.flow or nil,

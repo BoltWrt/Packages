@@ -32,6 +32,16 @@ client_file:write([[config nodes 'client'
 config nodes 'sb'
  option type 'sing-box'
  option transport 'tcp'
+config nodes 'ss'
+ option type 'sing-box'
+ option protocol 'shadowsocks'
+ option method 'aes-128-gcm'
+config nodes 'ws'
+ option type 'sing-box'
+ option transport 'ws'
+ option ws_path '/ws?token=a%2Fb'
+ option ws_maxEarlyData '2048'
+ option ws_earlyDataHeaderName 'Sec-WebSocket-Protocol'
 ]])
 client_file:close()
 local function cursor() return require("uci").cursor(directory, directory .. "/state") end
@@ -56,4 +66,6 @@ assert(c:get("passwall2", "client", "transport") == "raw")
 assert(c:get("passwall2", "client", "uuid") == "preserve-client-uuid")
 assert(c:get("passwall2", "client", "tls_pinSHA256") == "preserve-certificate-pin")
 assert(c:get("passwall2", "sb", "transport") == "tcp")
+assert(c:get("passwall2", "ss", "ss_method") == "aes-128-gcm")
+assert(c:get("passwall2", "ws", "ws_path") == "/ws?token=a%2Fb&ed=2048&eh=Sec-WebSocket-Protocol")
 print("PASS native libuci migration: fresh cursor, lists, schema, credentials, enabled intent, collision, idempotence")
