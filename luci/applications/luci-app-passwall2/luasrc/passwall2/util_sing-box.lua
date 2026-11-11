@@ -306,7 +306,9 @@ function gen_outbound(flag, node, tag, proxy_table)
 					tls.certificate_sha256 = { api.sha256_xray_sb(node.tls_pinSHA256) }
 				end
 			else
-				tls.insecure = node.tls_allowInsecure == "1" or (node.tls_pinSHA256 and node.tls_pinSHA256 ~= "")
+				if node.tls_pinSHA256 and node.tls_pinSHA256 ~= "" then
+					error("TLS certificate pinning requires Sing-Box 1.15 or newer; use a trusted PEM certificate with the stable core")
+				end
 			end
 		end
 

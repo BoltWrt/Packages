@@ -618,6 +618,13 @@ o:depends({ protocol = "hysteria2" })
 o:depends({ protocol = "masque" })
 o.description = translate("Once set, connects only when the server’s chain fingerprint matches.") ..
 		string.format("<a href='javascript:void(0)' onclick='javascript:fetchCertSha256(this)'>%s</a>", "→ " .. translate("Fetch Manually"))
+if not version_ge_1_15_0 then
+	o.description = translate("Certificate pinning requires Sing-Box 1.15 or newer. Use a trusted PEM certificate with this core.")
+	o.validate = function(self, value)
+		if value and value ~= "" then return nil, translate("Certificate pinning requires Sing-Box 1.15 or newer. Use a trusted PEM certificate with this core.") end
+		return value
+	end
+end
 
 o = s:option(Flag, "tls_certificate", translate("TLS Certificate (PEM)"))
 o.default = "0"

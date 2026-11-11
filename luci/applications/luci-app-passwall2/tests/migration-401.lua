@@ -46,8 +46,9 @@ local protocols = migration.plan({
     { [".name"]="hy", [".type"]="user", type="sing-box", protocol="hysteria", hysteria_auth_type="base64", hysteria_auth_password="YWJjAA==" },
     { [".name"]="raw", [".type"]="user", type="Xray", protocol="vless", transport="tcp", uuid={"uuid-c"} },
 }, {
-    { [".name"]="client", [".type"]="nodes", type="Xray", protocol="vless", transport="tcp" },
+    { [".name"]="client", [".type"]="nodes", type="Xray", protocol="vless", transport="tcp", tls_CertSha="old-cert-pin" },
     { [".name"]="sb-client", [".type"]="nodes", type="sing-box", protocol="vless", transport="tcp" },
+    { [".name"]="current", [".type"]="nodes", type="Xray", transport="raw", tls_CertSha="old", tls_pinSHA256="current-pin" },
 })
 assert(protocols.servers[1].options.ss_method == "aes-128-gcm")
 assert(protocols.servers[1].options.ss_password == "ss-password")
@@ -56,4 +57,6 @@ assert(protocols.accounts[2].options.password == "anytls-password")
 assert(protocols.accounts[3].options.password == "YWJjAA==", "binary auth was decoded or changed during migration")
 assert(protocols.servers[5].options.transport == "raw")
 assert(#protocols.clients == 1 and protocols.clients[1].id == "client")
+assert(protocols.clients[1].options.tls_pinSHA256 == "old-cert-pin")
+assert(protocols.clients[1].options.transport == "raw")
 print("PASS Sing-Box SS/Naive/AnyTLS/Hysteria credentials and Xray RAW transport migration")

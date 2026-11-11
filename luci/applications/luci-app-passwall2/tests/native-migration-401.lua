@@ -28,6 +28,7 @@ client_file:write([[config nodes 'client'
  option type 'Xray'
  option transport 'tcp'
  option uuid 'preserve-client-uuid'
+ option tls_CertSha 'preserve-certificate-pin'
 config nodes 'sb'
  option type 'sing-box'
  option transport 'tcp'
@@ -53,5 +54,6 @@ assert(#migration.read(c).servers == 0)
 assert(#migration.read(c).clients == 0)
 assert(c:get("passwall2", "client", "transport") == "raw")
 assert(c:get("passwall2", "client", "uuid") == "preserve-client-uuid")
+assert(c:get("passwall2", "client", "tls_pinSHA256") == "preserve-certificate-pin")
 assert(c:get("passwall2", "sb", "transport") == "tcp")
 print("PASS native libuci migration: fresh cursor, lists, schema, credentials, enabled intent, collision, idempotence")

@@ -2648,3 +2648,6 @@ msgstr "PassWall2 隨 BoltWrt 韌體升級更新。"
 
 msgid "Only stable component releases are supported."
 msgstr "僅支援元件的正式發行版本。"
+
+msgid "Certificate pinning requires Sing-Box 1.15 or newer. Use a trusted PEM certificate with this core."
+msgstr "憑證指紋驗證需要 Sing-Box 1.15 或更新版本。目前核心請使用受信任的 PEM 憑證。"

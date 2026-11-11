@@ -68,8 +68,13 @@ function M.plan(sections, nodes)
     end
     local clients = {}
     for _, node in ipairs(nodes or {}) do
-        if node[".type"] == "nodes" and node.type == "Xray" and node.transport == "tcp" then
-            clients[#clients + 1] = { id=node[".name"] }
+        if node[".type"] == "nodes" and node.type == "Xray" then
+            local options = {}
+            if node.transport == "tcp" then options.transport = "raw" end
+            if (not node.tls_pinSHA256 or node.tls_pinSHA256 == "") and node.tls_CertSha and node.tls_CertSha ~= "" then
+                options.tls_pinSHA256 = node.tls_CertSha
+            end
+            if next(options) then clients[#clients + 1] = { id=node[".name"], options=options } end
         end
     end
     return {servers=servers, accounts=accounts, clients=clients}
@@ -107,7 +112,9 @@ function M.apply(cursor, plan)
         assert(cursor:commit(config), "cannot commit migrated server config")
     end
     for _, client in ipairs(plan.clients) do
-        assert(cursor:set("passwall2", client.id, "transport", "raw"), "cannot migrate Xray transport")
+        for key,value in pairs(client.options) do
+            assert(cursor:set("passwall2", client.id, key, value), "cannot migrate Xray client setting")
+        end
     end
     if #plan.clients > 0 then
         assert(cursor:save("passwall2"), "cannot save migrated client config")

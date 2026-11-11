@@ -2150,9 +2150,18 @@ function fetch_cert_sha256(host, port, sni, timeout)
 	return fp:upper()
 end
 
+local function sha256_pin_bytes(str)
+	local encoded = str:gsub("%s", ""):gsub("_", "/"):gsub("-", "+"):gsub("=+$", "")
+	if encoded:find("[^A-Za-z0-9+/]") or #encoded % 4 == 1 then return nil end
+	local binary = nixio.bin.b64decode(encoded .. string.rep("=", (4 - #encoded % 4) % 4))
+	-- Certificate digests are binary and may contain NUL bytes. The URL-oriented
+	-- base64Decode helper strips those bytes and must not decode fingerprints.
+	return binary and #binary == 32 and binary or nil
+end
+
 function sha256_xray_sb(str)
-	local decoded = base64Decode(str)
-	if decoded ~= str and #decoded == 32 then return str end
+	local decoded = sha256_pin_bytes(str)
+	if decoded then return base64Encode(decoded) end
 	local hex = str:gsub(":", "")
 	if #hex ~= 64 or not hex:match("^[A-Fa-f0-9]+$") then return str end
 	local binary = hex:gsub("%x%x", function(byte)
@@ -2162,8 +2171,8 @@ function sha256_xray_sb(str)
 end
 
 function sha256_sb_xray(str)
-	local binary = base64Decode(str)
-	if binary == str or #binary ~= 32 then return str end
+	local binary = sha256_pin_bytes(str)
+	if not binary then return str end
 	return (binary:gsub(".", function(byte)
 		return string.format("%02X", string.byte(byte))
 	end))

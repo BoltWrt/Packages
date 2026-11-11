@@ -10,4 +10,4 @@ if not ok then
     io.stderr:write("PassWall2 server migration failed; original config backup retained\n")
     os.exit(1)
 end
-print("PassWall2: migrated " .. count .. " legacy server sections and " .. clients .. " Xray transports")
+print("PassWall2: migrated " .. count .. " legacy server sections and " .. clients .. " Xray client settings")
