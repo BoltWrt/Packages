@@ -29,6 +29,24 @@ local com = self.com
 	var unknownErrorText = '<%:Unknown error%>';
 	var componentUpdates = 0, luciUpdating = false;
 
+	function postUpdate(url, data, callback, timeout) {
+		var request = new XMLHttpRequest();
+		request.open('POST', url, true);
+		request.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+		request.timeout = (timeout || 300) * 1000;
+		request.onload = function () {
+			var response = null;
+			if (request.status >= 200 && request.status < 300) {
+				try { response = JSON.parse(request.responseText); } catch (error) {}
+			}
+			callback(request, response);
+		};
+		request.onerror = request.ontimeout = function () { callback(request, null); };
+		request.send(Object.keys(data).map(function (key) {
+			return encodeURIComponent(key) + '=' + encodeURIComponent(data[key]);
+		}).join('&'));
+	}
+
 	function syncUpdateButtons() {
 		var buttons = document.querySelectorAll('#app_version input[data-update-app]');
 		for (var i = 0; i < buttons.length; i++) {
@@ -194,7 +212,7 @@ local com = self.com
 				return;
 			}
 			downloadProgressPending = true;
-			XHR.get(appUpdateUrl, {
+			postUpdate(appUpdateUrl, {
 				token: tokenStr,
 				task: 'progress',
 				id: downloadId,
@@ -214,7 +232,7 @@ local com = self.com
 
 		function download(part) {
 			var asset = downloadList[part - 1];
-			XHR.get(appUpdateUrl, {
+			postUpdate(appUpdateUrl, {
 				token: tokenStr, url: asset.browser_download_url,
 				size: (app === appname && part === 1 ? totalSize : asset.size) / 1024,
 				id: downloadId, part: part
@@ -231,7 +249,7 @@ local com = self.com
 					installLuci(btn, appUpdateUrl, downloadId);
 				} else if (json.zip) {
 					btn.value = decompressioningText;
-					XHR.get(appUpdateUrl, {
+					postUpdate(appUpdateUrl, {
 						token: tokenStr, task: 'extract', file: json.file, subfix: appInfo.type || ''
 					}, function (x, json) {
 						if (!json || json.code) {
@@ -253,7 +271,7 @@ local com = self.com
 		btn.value = movingText;
 
 		// Move file to target dir
-		XHR.get(url, {
+		postUpdate(url, {
 			token: tokenStr,
 			task: 'move',
 			file: file
@@ -363,11 +381,7 @@ local com = self.com
 	</label>
 	<div class="cbi-value-field">
 		<div class="app-update-actions">
-			<input class="btn cbi-button cbi-button-apply" type="button" id="<%=api.appname%>-check_btn" data-update-app="<%=api.appname%>"
-				onclick="onBtnClick(this, appname);" value="<%:Check update%>" />
-			<input class="btn cbi-button cbi-button-apply" type="button" id="_<%=api.appname%>-force_btn" data-update-app="<%=api.appname%>"
-				onclick="doUpdate(this, appname);" value="<%:Force update%>" style="display:none" />
-			<span id="<%=api.appname%>-check_btn-detail"></span>
+			<span><%:PassWall2 is updated with BoltWrt firmware.%></span>
 		</div>
 	</div>
 </div>

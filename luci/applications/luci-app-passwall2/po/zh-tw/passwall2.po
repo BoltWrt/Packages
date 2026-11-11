@@ -1,3 +1,15 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: PassWall2 26.11.11\n"
+"PO-Revision-Date: 2026-11-11 00:00+0000\n"
+"Last-Translator: BoltWrt maintainers\n"
+"Language-Team: zh_TW\n"
+"Language: zh_TW\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+
 ﻿msgid "Auto"
 msgstr "自動"
 
@@ -2630,3 +2642,9 @@ msgstr "注意：自動嘗試擷取 Clash 訂閱中的節點 DNS，停用則不�
 
 msgid "Never expires"
 msgstr "長期有效"
+
+msgid "PassWall2 is updated with BoltWrt firmware."
+msgstr "PassWall2 隨 BoltWrt 韌體升級更新。"
+
+msgid "Only stable component releases are supported."
+msgstr "僅支援元件的正式發行版本。"

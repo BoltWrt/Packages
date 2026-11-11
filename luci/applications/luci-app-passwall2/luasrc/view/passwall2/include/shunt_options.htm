@@ -41,6 +41,7 @@ local tab_name = self.tab_name
 		const dom_id = "cbid.table." + id + ".";
 		const cbid = dom_id + "_proxy_tag";
 		const proxy_tag_dom = document.getElementById(cbid + ".main");
+		if (!proxy_tag_dom) return;
 		if (val === undefined || val === null) {
 			const selectNode = document.getElementById(dom_id + "_node");
 			if (!selectNode) return;

@@ -693,32 +693,12 @@ function server_clear_log()
 end
 
 function app_check()
-	local json = api.to_check_self()
-	http_write_json(json)
+	http_write_json({code = 1, error = i18n.translate("PassWall2 is updated with BoltWrt firmware.")})
 end
 
 function app_update()
-	local id = http.formvalue("id")
-	if not id or not id:match("^[%w_-]+$") then
-		http_write_json({code = 1, error = i18n.translate("Invalid download task.")})
-		return
-	end
-	local task = http.formvalue("task")
-	local result
-	if task == "progress" then
-		result = api.to_download_progress(appname, id, http.formvalue("total_size"))
-	elseif task == "install" then
-		if not luci.dispatcher.test_post_security() then return end
-		result = api.to_install_self(id, http.formvalue("force"), http.formvalue("languages"))
-	else
-		local part = tonumber(http.formvalue("part")) or 1
-		if part < 1 or part > 5 or part ~= math.floor(part) then
-			http_write_json({code = 1, error = i18n.translate("Invalid download task.")})
-			return
-		end
-		result = api.to_download(appname, http.formvalue("url"), http.formvalue("size"), id .. part, part > 1)
-	end
-	http_write_json(result)
+	-- An upstream-only APK removes BoltWrt's preserved backends and migrations.
+	http_write_json({code = 1, error = i18n.translate("PassWall2 is updated with BoltWrt firmware.")})
 end
 
 function com_check(comname)
@@ -727,6 +707,7 @@ function com_check(comname)
 end
 
 function com_update(comname)
+	if not luci.dispatcher.test_post_security() then return end
 	local json = nil
 	local task = http.formvalue("task")
 	if task == "progress" then

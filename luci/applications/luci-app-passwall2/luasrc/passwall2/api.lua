@@ -16,7 +16,7 @@ datatypes = require "luci.cbi.datatypes"
 jsonc = require "luci.jsonc"
 i18n = require "luci.i18n"
 
-curl_args = { "-skfL", "--connect-timeout 3", "--retry 3", "-H 'Accept: */*'" }
+curl_args = { "-sfL", "--connect-timeout 3", "--retry 3", "-H 'Accept: */*'" }
 command_timeout = 300
 DIRECT_GID = 9912
 OPENWRT_ARCH = nil
@@ -1296,6 +1296,10 @@ function to_check(arch, app_name)
 			code = 1,
 			error = i18n.translate("Get remote version info failed.")
 		}
+	end
+
+	if not require("luci.passwall2.release").is_stable(json) then
+		return {code = 1, error = i18n.translate("Only stable component releases are supported.")}
 	end
 
 	local remote_version = json.tag_name
