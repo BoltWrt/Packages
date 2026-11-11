@@ -225,4 +225,3 @@ config shunt_rules 'Russia'
 	option ip_list 'geoip:ru
 #rule-set:remote:https://raw.githubusercontent.com/runetfreedom/russia-v2ray-rules-dat/refs/heads/release/sing-box/rule-set-geoip/geoip-ru.srs'
 	option group 'RU'
-
