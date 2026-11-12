@@ -1,8 +1,65 @@
 -- Convert the 4.0.0 server schema without changing section IDs, enable intent,
--- credentials, custom JSON, or certificate paths. The caller backs up first.
+-- credentials or certificate paths. Users export their backup before upgrading.
 local M = {}
 local supported = { SS=true, SSR=true, ["SS-Rust"]=true, Xray=true,
     ["sing-box"]=true, Hysteria2=true }
+local removed = { SS=true, Hysteria2=true, Naive=true, TUIC=true }
+local ss_methods = { ["aes-128-gcm"]=true, ["aes-256-gcm"]=true,
+    ["chacha20-ietf-poly1305"]=true }
+
+-- Convert only the common options that have an equivalent upstream backend.
+-- Retain every old option in UCI. Custom JSON, certificate pins and options
+-- without an equivalent stay untouched and are reported in LuCI for review.
+local function replacement(node, server)
+    if not removed[node.type] then return {} end
+    if node.custom == "1" or (node.config_str and node.config_str ~= "") then return nil end
+    if node.type == "SS" then
+        if not ss_methods[node.method] then return nil end
+        if server then
+            if node.plugin and node.plugin ~= "" and node.plugin ~= "none" then return nil end
+            return {type="sing-box", protocol="shadowsocks", ss_method=node.method,
+                ss_password=node.password}
+        end
+        return {type="SS-Rust"}
+    end
+    if node.type ~= "Hysteria2" then return nil end
+    if server and node.hysteria2_udp == "0" then return nil end
+    if not server then
+        for _, key in ipairs({"hysteria2_tls_pinSHA256", "tls_pinSHA256",
+                "hysteria2_recv_window", "hysteria2_recv_window_conn"}) do
+            if node[key] and node[key] ~= "" then return nil end
+        end
+        if node.fast_open == "1" or node.hysteria2_lazy_start == "1" then return nil end
+    end
+    local options = {type="sing-box", protocol="hysteria2", tls="1"}
+    if node.hysteria2_obfs and node.hysteria2_obfs ~= "" then
+        options.hysteria2_obfs_type = "salamander"
+        options.hysteria2_obfs_password = node.hysteria2_obfs
+    end
+    if server then
+        options.hysteria2_ignore_client_bandwidth = node.hysteria2_ignoreClientBandwidth
+    elseif node.hysteria2_hop and node.hysteria2_hop ~= "" then
+        -- The native core includes the primary port in its hopping set;
+        -- upstream Sing-Box uses server_ports instead of server_port.
+        local ports = {tostring(node.port) .. ":" .. tostring(node.port)}
+        for value in node.hysteria2_hop:gmatch("[^,]+") do
+            value = value:gsub("-", ":")
+            if value:match("^%d+$") then value = value .. ":" .. value end
+            if not value:match("^%d+:%d+$") then return nil end
+            ports[#ports + 1] = value
+        end
+        options.hysteria2_hop = table.concat(ports, ",")
+    end
+    return options
+end
+
+function M.needs_manual_review(cursor, config)
+    local found = false
+    cursor:foreach(config, nil, function(section)
+        if removed[section.type] then found = true end
+    end)
+    return found
+end
 
 local function values(value)
     if type(value) == "table" then return value end
@@ -28,13 +85,28 @@ local function websocket_path(node)
 end
 
 function M.plan(sections, nodes)
-    local occupied, servers, accounts = {}, {}, {}
+    local occupied, servers, accounts, manual = {}, {}, {}, {}
     for _, section in ipairs(sections) do occupied[section[".name"]] = true end
-    for _, section in ipairs(sections) do
-        if section[".type"] == "user" and supported[section.type] then
+    for _, original in ipairs(sections) do
+        local section = {}
+        for key, value in pairs(original) do section[key] = value end
+        if section[".type"] == "server" and section.type == "SS" and section.user then
+            for _, user in ipairs(sections) do
+                if user[".name"] == section.user then section.password = user.password end
+            end
+        end
+        local replacements = replacement(section, true)
+        if replacements then
+            for key, value in pairs(replacements) do section[key] = value end
+        elseif removed[original.type] then
+            manual[#manual + 1] = {config="passwall2_server", id=original[".name"]}
+        end
+        if replacements and ((section[".type"] == "user" and supported[section.type]) or
+                (section[".type"] == "server" and removed[original.type])) then
             local id = assert(section[".name"])
             local update = { id=id, options={}, users={} }
             local options = update.options
+            for key, value in pairs(replacements) do options[key] = value end
             -- The former bind_local setting also controlled firewall exposure.
             options.firewall_allow = section.bind_local == "1" and "0" or "1"
             options.firewall_allow_src = "wan"
@@ -85,9 +157,16 @@ function M.plan(sections, nodes)
         end
     end
     local clients = {}
-    for _, node in ipairs(nodes or {}) do
-        if node[".type"] == "nodes" and (node.type == "Xray" or node.type == "sing-box") then
-            local options = {}
+    for _, original in ipairs(nodes or {}) do
+        local node = {}
+        for key, value in pairs(original) do node[key] = value end
+        local options = replacement(node, false)
+        if options then
+            for key, value in pairs(options) do node[key] = value end
+        elseif node[".type"] == "nodes" and removed[node.type] then
+            manual[#manual + 1] = {config="passwall2", id=node[".name"]}
+        end
+        if options and node[".type"] == "nodes" then
             if node.type == "Xray" and node.transport == "tcp" then options.transport = "raw" end
             if node.type == "Xray" and (not node.tls_pinSHA256 or node.tls_pinSHA256 == "") and node.tls_CertSha and node.tls_CertSha ~= "" then
                 options.tls_pinSHA256 = node.tls_CertSha
@@ -163,7 +242,7 @@ function M.plan(sections, nodes)
             clients[#clients+1] = {id=section[".name"], options=options, remove=remove}
         end
     end
-    return {servers=servers, accounts=accounts, clients=clients}
+    return {servers=servers, accounts=accounts, clients=clients, manual=manual}
 end
 
 function M.read(cursor)

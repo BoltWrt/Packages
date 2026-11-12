@@ -11,7 +11,6 @@ local function gh_pre_release_url(self)
 end
 
 _M.order = {
-	"hysteria",
 	"geoview",
 	"xray",
 	"sing-box"
@@ -77,21 +76,5 @@ _M.geoview = {
 		mips64el = "mips64le"
 	}
 }
-
-_M.hysteria = {
-	name = "Hysteria",
-	repo = "HyNetwork/hysteria",
-	get_url = gh_release_url,
-	cmd_version = "version | awk '/^Version:/ {print $2}'",
-	remote_version_str_replace = "app/",
-	zipped = false,
-	default_path = "/usr/bin/hysteria",
-	match_fmt_str = "linux%%-%s$",
-	file_tree = {
-		armv6 = "arm",
-		armv7 = "arm"
-	}
-}
-
 
 return _M

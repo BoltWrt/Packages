@@ -1,3 +1,31 @@
 {
-  "submodules": {}
+  "submodules": {
+    "luci/theme/luci-theme-argon": {
+      "commit": "6bdb62e6f9839f0faf69c86b2a0c0506e66359b6",
+      "files": {
+        "Makefile": [
+          [
+            "PKG_RELEASE:=20261106\n",
+            "PKG_RELEASE:=20261112\n"
+          ],
+          [
+            "include $(TOPDIR)/feeds/luci/luci.mk\n",
+            "# BoltWrt ships one fixed theme, without appearance/update controls.\ndefine Package/luci-theme-argon/install-extra\n\t$(RM) $(1)/www/luci-static/resources/view/argon-config.js\n\t$(RM) $(1)/www/luci-static/resources/argon-appearance.js\n\t$(RM) $(1)/usr/share/luci/menu.d/luci-app-argon-config.json\n\t$(RM) $(1)/usr/share/rpcd/acl.d/luci-app-argon-config.json\n\t$(RM) $(1)/usr/share/rpcd/acl.d/luci-theme-argon.json\n\t$(RM) $(1)/usr/libexec/rpcd/luci.argon $(1)/usr/libexec/rpcd/luci.argon_update $(1)/usr/libexec/rpcd/luci.argon_appearance $(1)/usr/libexec/rpcd/luci.argon_branding\nendef\n\ninclude $(TOPDIR)/feeds/luci/luci.mk\n"
+          ]
+        ],
+        "ucode/template/themes/argon/header.ut": [
+          [
+            "\t\t\t\t\t\t\t<div id=\"argon-appearance\" hidden></div>\n",
+            ""
+          ]
+        ],
+        "ucode/template/themes/argon/page_scripts.ut": [
+          [
+            "\tL.require('argon-appearance');\n",
+            ""
+          ]
+        ]
+      }
+    }
+  }
 }

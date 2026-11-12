@@ -2,6 +2,9 @@ local api = require "luci.passwall2.api"
 api.set_default_cbi()
 
 m = Map(api.s_config)
+if require("luci.passwall2.migrate_401").needs_manual_review(api.uci, api.s_config) then
+    m.description = translate("Some legacy servers use removed standalone backends. Their configuration is retained. Reconfigure them with an upstream-supported core before enabling the server.")
+end
 m.redirect = api.url("server")
 
 t = m:section(NamedSection, "global", "global", translate("Server-Side"))

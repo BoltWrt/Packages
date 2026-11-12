@@ -5,6 +5,9 @@ has_xray = api.finded_com("xray")
 api.set_default_cbi()
 
 m = Map()
+if require("luci.passwall2.migrate_401").needs_manual_review(api.uci, api.c_config) then
+    m.description = translate("Some legacy nodes use removed standalone backends. Their configuration is retained. Reconfigure them with an upstream-supported core before enabling proxy services.")
+end
 
 m:appendTemplate("/cbi/nodes_listvalue_com")
 
