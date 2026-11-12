@@ -10,26 +10,24 @@ local function gh_pre_release_url(self)
 	return "https://github.com/Openwrt-Passwall/openwrt-passwall-packages/releases/download/api-cache/" .. string.lower(self.name) .. "-pre-release-api.json"
 end
 
-_M.hysteria = {
-	name = "Hysteria",
-	repo = "HyNetwork/hysteria",
-	get_url = gh_release_url,
-	cmd_version = "version | awk '/^Version:/ {print $2}'",
-	remote_version_str_replace = "app/",
-	zipped = false,
-	default_path = "/usr/bin/hysteria",
-	match_fmt_str = "linux%%-%s$",
-	file_tree = {
-		armv6 = "arm",
-		armv7 = "arm"
-	}
+_M.order = {
+	"hysteria",
+	"geoview",
+	"xray",
+	"sing-box"
+}
+
+-- The LuCI package has its own update flow and is not a binary component.
+_M.passwall2 = {
+	name = "PassWall2",
+	get_url = gh_release_url
 }
 
 _M["sing-box"] = {
 	name = "Sing-Box",
 	repo = "SagerNet/sing-box",
 	get_url = gh_release_url,
-	cmd_version = "version | awk '{print $3}' | sed -n 1P",
+	cmd_version = "version",
 	zipped = true,
 	zipped_suffix = "tar.gz",
 	default_path = "/usr/bin/sing-box",
@@ -52,7 +50,7 @@ _M["sing-box"] = {
 _M.xray = {
 	name = "Xray",
 	repo = "XTLS/Xray-core",
-	get_url = gh_pre_release_url,
+	get_url = gh_release_url,
 	cmd_version = "version | awk '{print $2}' | sed -n 1P",
 	zipped = true,
 	default_path = "/usr/bin/xray",
@@ -79,5 +77,21 @@ _M.geoview = {
 		mips64el = "mips64le"
 	}
 }
+
+_M.hysteria = {
+	name = "Hysteria",
+	repo = "HyNetwork/hysteria",
+	get_url = gh_release_url,
+	cmd_version = "version | awk '/^Version:/ {print $2}'",
+	remote_version_str_replace = "app/",
+	zipped = false,
+	default_path = "/usr/bin/hysteria",
+	match_fmt_str = "linux%%-%s$",
+	file_tree = {
+		armv6 = "arm",
+		armv7 = "arm"
+	}
+}
+
 
 return _M
