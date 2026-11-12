@@ -6,8 +6,8 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=luci-app-passwall2
-PKG_VERSION:=26.4.20
-PKG_RELEASE:=4
+PKG_VERSION:=26.11.11
+PKG_RELEASE:=3
 PKG_PO_VERSION:=$(PKG_VERSION)
 
 PKG_CONFIG_DEPENDS:= \
@@ -30,7 +30,7 @@ PKG_CONFIG_DEPENDS:= \
 
 LUCI_TITLE:=LuCI support for PassWall 2
 LUCI_PKGARCH:=all
-LUCI_DEPENDS:=+coreutils +coreutils-base64 +coreutils-nohup +curl \
+LUCI_DEPENDS:=+coreutils +coreutils-base64 +coreutils-nohup +coreutils-timeout +lyaml +curl +ca-bundle \
 	+ip-full +libuci-lua +lua +luci-compat +luci-lib-jsonc +resolveip +tcping \
 	+xray-core +geoview +v2ray-geoip +v2ray-geosite \
 	+unzip \
@@ -152,6 +152,7 @@ define Package/$(PKG_NAME)/conffiles
 /etc/config/passwall2
 /etc/config/passwall2_server
 /usr/share/passwall2/domains_excluded
+/etc/boltwrt/migrations/
 endef
 
 include $(TOPDIR)/feeds/luci/luci.mk

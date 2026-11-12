@@ -1,12 +1,16 @@
 module("luci.passwall2.util_shadowsocks", package.seeall)
 local api = require "luci.passwall2.api"
-local uci = api.uci
 local jsonc = api.jsonc
 
 function gen_config_server(node)
+	local user = nil
+	if node.user then
+		user = api.uci_get_s(node.user)
+	end
+
 	local config = {}
 	config.server_port = tonumber(node.port)
-	config.password = node.password
+	config.password = user and user.password or ""
 	config.timeout = tonumber(node.timeout)
 	config.fast_open = (node.tcp_fast_open and node.tcp_fast_open == "1") and true or false
 	config.method = node.method
@@ -17,6 +21,7 @@ function gen_config_server(node)
 	else
 		config.server = {"[::0]", "0.0.0.0"}
 	end
+	if node.bind_local == "1" then config.server = "127.0.0.1" end
 
 	if node.type == "SSR" then
 		config.protocol = node.protocol
@@ -36,8 +41,8 @@ function gen_config(var)
 		print("node Cannot be empty!")
 		return
 	end
-	local node = uci:get_all("passwall2", node_id)
-	local server_host = var["server_host"] or node.address
+	local node = api.uci_get_c(node_id)
+	local server_host = var["server_host"] or (node.address or ""):lower()
 	local server_port = var["server_port"] or node.port
 	local local_addr = var["local_addr"]
 	local local_port = var["local_port"]
@@ -74,11 +79,11 @@ function gen_config(var)
 		fast_open = (node.tcp_fast_open and node.tcp_fast_open == "1") and true or false,
 		reuse_port = true
 	}
-	
+
 	if node.type == "SS" then
-		config.plugin = plugin_file or nil
-		config.plugin_opts = (plugin_file) and node.plugin_opts or nil
-		config.mode = mode
+		config.mode = mode or "tcp_and_udp"
+		config.plugin = plugin_file
+		config.plugin_opts = plugin_file and node.plugin_opts or nil
 	elseif node.type == "SSR" then
 		config.protocol = node.protocol
 		config.protocol_param = node.protocol_param
@@ -115,7 +120,7 @@ function gen_config(var)
 			})
 		end
 	end
-	
+
 	return jsonc.stringify(config, 1)
 end
 

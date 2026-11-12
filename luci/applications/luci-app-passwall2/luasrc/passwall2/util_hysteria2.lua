@@ -5,7 +5,7 @@ local jsonc = api.jsonc
 
 function gen_config_server(node)
 	local config = {
-		listen = ":" .. node.port,
+		listen = (node.bind_local == "1" and "127.0.0.1:" or ":") .. node.port,
 		tls = {
 			cert = node.tls_certificateFile,
 			key = node.tls_keyFile,
