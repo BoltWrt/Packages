@@ -69,8 +69,6 @@ uci:revert(c_config)
 math.randomseed(os.time() + math.floor(os.clock() * 1000))
 local restart_required = false
 
-local has_ss = api.is_finded("ss-local")
-local has_hysteria2 = api.finded_com("hysteria")
 local has_ss_rust = api.is_finded("sslocal")
 local has_ssr = api.is_finded("ssr-local") and api.is_finded("ssr-redir")
 local has_singbox = api.finded_com("sing-box")
@@ -97,15 +95,13 @@ local DEFAULT_FILTER_KEYWORD = {
 	keep_list = split_filter_keywords(uci_get("@global_subscribe[0]", "filter_keep_list"))
 }
 -- Nodes should be retrieved using the core type (if not set on the node subscription page, the default type will be used automatically).
-local DEFAULT_SS_TYPE = api.get_core("ss_type", {{has_ss,"shadowsocks-libev"},{has_ss_rust,"shadowsocks-rust"},{has_singbox,"sing-box"},{has_xray,"xray"}})
+local DEFAULT_SS_TYPE = api.get_core("ss_type", {{has_ss_rust,"shadowsocks-rust"},{has_singbox,"sing-box"},{has_xray,"xray"}})
 local DEFAULT_TROJAN_TYPE = api.get_core("trojan_type", {{has_singbox,"sing-box"},{has_xray,"xray"}})
 local DEFAULT_VMESS_TYPE = api.get_core("vmess_type", {{has_xray,"xray"},{has_singbox,"sing-box"}})
 local DEFAULT_VLESS_TYPE = api.get_core("vless_type", {{has_xray,"xray"},{has_singbox,"sing-box"}})
-local DEFAULT_HYSTERIA2_TYPE = api.get_core("hysteria2_type", {{has_hysteria2,"hysteria2"},{has_singbox,"sing-box"},{has_xray,"xray"}})
+local DEFAULT_HYSTERIA2_TYPE = api.get_core("hysteria2_type", {{has_singbox,"sing-box"},{has_xray,"xray"}})
 local DEFAULT_OTHER_TYPE = api.get_core("other_type", {{has_singbox,"sing-box"},{has_xray,"xray"}})
 local core_has = {
-	["shadowsocks-libev"] = has_ss,
-	["hysteria2"] = has_hysteria2,
 	["xray"] = has_xray,
 	["sing-box"] = has_singbox,
 	["shadowsocks-rust"] = has_ss_rust,
@@ -503,9 +499,7 @@ end
 
 -- Configure the SS protocol implementation type
 local function set_ss_implementation(ss_type, result)
-	if ss_type == "shadowsocks-libev" and has_ss then
-		result.type = "SS"
-	elseif ss_type == "shadowsocks-rust" and has_ss_rust then
+	if ss_type == "shadowsocks-rust" and has_ss_rust then
 		result.type = 'SS-Rust'
 	elseif ss_type == "xray" and has_xray then
 		result.type = 'Xray'
@@ -1422,11 +1416,7 @@ local function processData(szType, content, add_mode, group, sub_cfg)
 			result.hysteria2_obfs_MaxPacketSize = params.maxpacketsize or "1200"
 		end
 
-		if sub_hysteria2_type == "hysteria2" and has_hysteria2 then
-			result.type = "Hysteria2"
-			result.hysteria2_obfs = result.hysteria2_obfs_password
-			result.hysteria2_tls_pinSHA256 = result.tls_pinSHA256
-		elseif (sub_hysteria2_type == "sing-box" and has_singbox) or (sub_hysteria2_type == "xray" and has_xray) then
+		if (sub_hysteria2_type == "sing-box" and has_singbox) or (sub_hysteria2_type == "xray" and has_xray) then
 			local is_singbox = sub_hysteria2_type == "sing-box" and has_singbox
 			result.type = is_singbox and 'sing-box' or 'Xray'
 			result.protocol = "hysteria2"
