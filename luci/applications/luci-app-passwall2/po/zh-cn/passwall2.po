@@ -2645,3 +2645,9 @@ msgstr "仅支持组件的正式发布版本。"
 
 msgid "Certificate pinning requires Sing-Box 1.15 or newer. Use a trusted PEM certificate with this core."
 msgstr "证书指纹校验需要 Sing-Box 1.15 或更新版本。当前核心请使用受信任的 PEM 证书。"
+
+msgid "Some legacy nodes use removed standalone backends. Their configuration is retained. Reconfigure them with an upstream-supported core before enabling proxy services."
+msgstr "部分旧节点使用的独立后端已被上游移除，原配置已保留。请先将这些节点调整为上游支持的核心，再启用代理服务。"
+
+msgid "Some legacy servers use removed standalone backends. Their configuration is retained. Reconfigure them with an upstream-supported core before enabling the server."
+msgstr "部分旧服务端使用的独立后端已被上游移除，原配置已保留。请先将这些服务端调整为上游支持的核心，再启用服务。"

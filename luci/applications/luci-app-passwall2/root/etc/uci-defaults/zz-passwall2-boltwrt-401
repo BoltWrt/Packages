@@ -1,17 +1,9 @@
 #!/bin/sh
-# Back up credentials privately before the idempotent 4.0.0 server migration.
+# Upgrade preparation requires a user-exported backup. Do not retain a second
+# credential archive on the router; sysupgrade supplies the working config.
 set -eu
 umask 077
 status=0
 lua /usr/share/passwall2/migrate_401.lua check || status=$?
 case "$status" in 0) ;; 2) exit 0 ;; *) exit "$status" ;; esac
-backup=/etc/boltwrt/migrations/4.0.1
-mkdir -p "$backup"
-chmod 700 /etc/boltwrt /etc/boltwrt/migrations "$backup"
-for config in passwall2 passwall2_server; do
-    if [ -f "/etc/config/$config" ] && [ ! -e "$backup/$config" ]; then
-        cp "/etc/config/$config" "$backup/$config"
-        chmod 600 "$backup/$config"
-    fi
-done
 lua /usr/share/passwall2/migrate_401.lua apply

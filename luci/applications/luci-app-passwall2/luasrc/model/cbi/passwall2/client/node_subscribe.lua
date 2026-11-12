@@ -5,12 +5,10 @@ local has_ss_rust = api.is_finded("sslocal")
 local has_singbox = api.finded_com("sing-box")
 local has_xray = api.finded_com("xray")
 local ss_type = {}
-if api.is_finded("ss-local") then table.insert(ss_type, "shadowsocks-libev") end
 local trojan_type = {}
 local vmess_type = {}
 local vless_type = {}
 local hysteria2_type = {}
-if api.finded_com("hysteria") then table.insert(hysteria2_type, "hysteria2") end
 local other_type = {}
 local xray_version = api.get_app_version("xray")
 if has_ss_rust then

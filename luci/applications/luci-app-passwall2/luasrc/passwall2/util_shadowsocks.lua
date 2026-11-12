@@ -21,7 +21,6 @@ function gen_config_server(node)
 	else
 		config.server = {"[::0]", "0.0.0.0"}
 	end
-	if node.bind_local == "1" then config.server = "127.0.0.1" end
 
 	if node.type == "SSR" then
 		config.protocol = node.protocol
@@ -30,6 +29,7 @@ function gen_config_server(node)
 		config.obfs_param = node.obfs_param
 	end
 
+	if node.bind_local == "1" then config.server = "127.0.0.1" end
 	return config
 end
 
@@ -80,11 +80,7 @@ function gen_config(var)
 		reuse_port = true
 	}
 
-	if node.type == "SS" then
-		config.mode = mode or "tcp_and_udp"
-		config.plugin = plugin_file
-		config.plugin_opts = plugin_file and node.plugin_opts or nil
-	elseif node.type == "SSR" then
+	if node.type == "SSR" then
 		config.protocol = node.protocol
 		config.protocol_param = node.protocol_param
 		config.obfs = node.obfs
